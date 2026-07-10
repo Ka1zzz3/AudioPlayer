@@ -36,6 +36,8 @@ qt_add_executable(AudioPlayer
     src/Model/AudioFile.h
     src/Model/FileScanner.cpp
     src/Model/FileScanner.h
+    src/Model/JsonSongRepository.cpp
+    src/Model/JsonSongRepository.h
     src/Model/PlayList.cpp
     src/Model/PlayList.h
 )
