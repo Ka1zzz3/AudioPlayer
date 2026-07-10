@@ -1,0 +1,74 @@
+# OMX / Codex runtime state
+.omx/
+.codex/*
+!.codex/agents/
+!.codex/agents/**
+!.codex/skills/
+!.codex/skills/**
+.codex/skills/.system/**
+!.codex/prompts/
+!.codex/prompts/**
+
+# CMake build outputs
+build/
+build-*/
+cmake-build-*/
+out/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+CTestTestfile.cmake
+DartConfiguration.tcl
+Makefile
+compile_commands.json
+install_manifest.txt
+Testing/
+
+# Qt generated files and IDE user settings
+.qt/
+*_autogen/
+_autogen/
+autogen/
+moc_*.cpp
+moc_*.cxx
+qrc_*.cpp
+ui_*.h
+*.qmlc
+*.jsc
+*.user
+*.user.*
+*.autosave
+
+# C/C++ build artifacts
+*.o
+*.obj
+*.lo
+*.la
+*.a
+*.lib
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exe
+*.out
+*.app
+*.dSYM/
+
+# Test, logs, and temporary files
+*.log
+*.tmp
+*.temp
+*.swp
+*.swo
+.cache/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local dependency/build drops
+third_party/build/
+third_party/*/build/
+third_party/*/lib/
+third_party/*/bin/
