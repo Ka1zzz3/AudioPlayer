@@ -1,0 +1,27 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "audioplayer",
+  "version-string": "0.1.0",
+  "dependencies": [
+    "nlohmann-json",
+    {
+      "name": "qtbase",
+      "default-features": false,
+      "features": [
+        "gui",
+        "testlib"
+      ]
+    },
+    {
+      "name": "qtdeclarative",
+      "default-features": false
+    },
+    {
+      "name": "qtmultimedia",
+      "default-features": false,
+      "features": [
+        "qml"
+      ]
+    }
+  ]
+}
