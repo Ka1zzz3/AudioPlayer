@@ -57,6 +57,11 @@ target_link_libraries(AudioPlayer PRIVATE
 qt_add_qml_module(AudioPlayer
     URI AudioPlayer
     VERSION 1.0
+    SOURCES
+        src/ViewModel/LibraryViewModel.cpp
+        src/ViewModel/LibraryViewModel.h
+        src/ViewModel/SongListModel.cpp
+        src/ViewModel/SongListModel.h
     QML_FILES
         src/View/Main.qml
 )
