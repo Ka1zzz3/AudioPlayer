@@ -4,7 +4,12 @@
 
 #include <QObject>
 #include <QString>
+#if __has_include(<QtQmlIntegration/qqmlintegration.h>)
 #include <QtQmlIntegration/qqmlintegration.h>
+#else
+#define QML_NAMED_ELEMENT(NAME)
+#define QML_ANONYMOUS
+#endif
 
 namespace AudioPlayer::ViewModel {
 

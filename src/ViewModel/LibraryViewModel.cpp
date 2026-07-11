@@ -6,6 +6,8 @@
 #include <optional>
 #include <utility>
 
+#include <QStringList>
+
 namespace AudioPlayer::ViewModel {
 
 LibraryViewModel::LibraryViewModel(QObject *parent)
@@ -64,12 +66,25 @@ bool LibraryViewModel::load()
 bool LibraryViewModel::refresh()
 {
     Model::PlayList refreshedPlayList;
+    QStringList skippedFilePaths;
     for (const Model::AudioFile &audioFile : m_songs.playList().items()) {
         std::optional<Model::AudioFile> scannedAudioFile = Model::FileScanner::scanFile(audioFile.filePath());
-        refreshedPlayList.add(scannedAudioFile.value_or(audioFile));
+        if (!scannedAudioFile.has_value()) {
+            skippedFilePaths.append(audioFile.filePath());
+            continue;
+        }
+
+        refreshedPlayList.add(std::move(*scannedAudioFile));
     }
 
     replacePlayList(std::move(refreshedPlayList));
+    if (skippedFilePaths.isEmpty()) {
+        setLastError({});
+    } else {
+        setLastError(QStringLiteral("Refresh skipped %1 missing or unsupported file(s): %2")
+                         .arg(skippedFilePaths.size())
+                         .arg(skippedFilePaths.join(QStringLiteral(", "))));
+    }
     emit refreshed();
     return true;
 }

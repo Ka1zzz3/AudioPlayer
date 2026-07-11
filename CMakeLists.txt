@@ -10,13 +10,28 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-find_package(Qt6 6.4 QUIET COMPONENTS Core Gui Qml Quick)
+option(AUDIOPLAYER_BUILD_QML_APP "Build the Qt Quick/QML application target" ON)
+
+find_package(Qt6 6.4 QUIET COMPONENTS Core Gui)
 if(NOT Qt6_FOUND)
     message(FATAL_ERROR
-        "Qt6 6.4+ with Core, Gui, Qml, and Quick components is required. "
+        "Qt6 6.4+ with Core and Gui components is required. "
         "Install the Qt6 development packages for your platform or configure CMAKE_PREFIX_PATH "
         "to the Qt6 installation prefix."
     )
+endif()
+
+if(AUDIOPLAYER_BUILD_QML_APP)
+    find_package(Qt6 6.4 QUIET COMPONENTS Qml Quick)
+    if(NOT Qt6Qml_FOUND OR NOT Qt6Quick_FOUND)
+        message(FATAL_ERROR
+            "AUDIOPLAYER_BUILD_QML_APP=ON requires Qt6 6.4+ Qml and Quick components. "
+            "Install Qt Declarative/QML development packages or configure CMAKE_PREFIX_PATH "
+            "to a Qt installation that provides Qt6Qml and Qt6Quick. "
+            "For model/viewmodel-only tests with vcpkg qtbase, configure with "
+            "-DAUDIOPLAYER_BUILD_QML_APP=OFF."
+        )
+    endif()
 endif()
 
 find_package(nlohmann_json CONFIG QUIET)
@@ -30,48 +45,53 @@ endif()
 
 qt_standard_project_setup(REQUIRES 6.4)
 
-qt_add_executable(AudioPlayer
-    src/main.cpp
-    src/Model/AudioFile.cpp
-    src/Model/AudioFile.h
-    src/Model/FileScanner.cpp
-    src/Model/FileScanner.h
-    src/Model/JsonSongRepository.cpp
-    src/Model/JsonSongRepository.h
-    src/Model/PlayList.cpp
-    src/Model/PlayList.h
-)
+if(AUDIOPLAYER_BUILD_QML_APP)
+    qt_add_executable(AudioPlayer
+        src/main.cpp
+        src/Model/AudioFile.cpp
+        src/Model/AudioFile.h
+        src/Model/FileScanner.cpp
+        src/Model/FileScanner.h
+        src/Model/JsonSongRepository.cpp
+        src/Model/JsonSongRepository.h
+        src/Model/PlayList.cpp
+        src/Model/PlayList.h
+    )
 
-target_include_directories(AudioPlayer PRIVATE
-    "${CMAKE_CURRENT_SOURCE_DIR}/src"
-)
+    target_include_directories(AudioPlayer PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/src"
+    )
 
-target_link_libraries(AudioPlayer PRIVATE
-    Qt6::Core
-    Qt6::Gui
-    Qt6::Qml
-    Qt6::Quick
-    nlohmann_json::nlohmann_json
-)
+    target_link_libraries(AudioPlayer PRIVATE
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Qml
+        Qt6::Quick
+        nlohmann_json::nlohmann_json
+    )
 
-qt_add_qml_module(AudioPlayer
-    URI AudioPlayer
-    VERSION 1.0
-    SOURCES
-        src/ViewModel/LibraryViewModel.cpp
-        src/ViewModel/LibraryViewModel.h
-        src/ViewModel/SongListModel.cpp
-        src/ViewModel/SongListModel.h
-    QML_FILES
-        src/View/Main.qml
-)
+    qt_add_qml_module(AudioPlayer
+        URI AudioPlayer
+        VERSION 1.0
+        SOURCES
+            src/ViewModel/LibraryViewModel.cpp
+            src/ViewModel/LibraryViewModel.h
+            src/ViewModel/SongListModel.cpp
+            src/ViewModel/SongListModel.h
+        QML_FILES
+            src/View/Main.qml
+    )
+
+endif()
 
 include(CTest)
 if(BUILD_TESTING)
     add_subdirectory(test)
 endif()
 
-install(TARGETS AudioPlayer
-    BUNDLE DESTINATION .
-    RUNTIME DESTINATION bin
-)
+if(AUDIOPLAYER_BUILD_QML_APP)
+    install(TARGETS AudioPlayer
+        BUNDLE DESTINATION .
+        RUNTIME DESTINATION bin
+    )
+endif()
