@@ -1,6 +1,6 @@
 find_package(Qt6 QUIET COMPONENTS Test)
 if(NOT Qt6Test_FOUND)
-    message(WARNING "Qt6 Test component was not found; skipping skeleton tests.")
+    message(WARNING "Qt6 Test component was not found; skipping tests.")
     return()
 endif()
 
@@ -13,3 +13,23 @@ target_link_libraries(AudioPlayerSkeletonTest PRIVATE
 )
 
 add_test(NAME AudioPlayerSkeletonTest COMMAND AudioPlayerSkeletonTest)
+
+qt_add_executable(AudioPlayerModelBehaviorTest
+    model_behavior_test.cpp
+    ../src/Model/AudioFile.cpp
+    ../src/Model/FileScanner.cpp
+    ../src/Model/JsonSongRepository.cpp
+    ../src/Model/PlayList.cpp
+)
+
+target_include_directories(AudioPlayerModelBehaviorTest PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/../src"
+)
+
+target_link_libraries(AudioPlayerModelBehaviorTest PRIVATE
+    Qt6::Core
+    Qt6::Test
+    nlohmann_json::nlohmann_json
+)
+
+add_test(NAME AudioPlayerModelBehaviorTest COMMAND AudioPlayerModelBehaviorTest)
