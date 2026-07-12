@@ -11,6 +11,10 @@
         "gui",
         "testlib"
       ]
+    },
+    {
+      "name": "qtdeclarative",
+      "default-features": false
     }
   ]
 }
