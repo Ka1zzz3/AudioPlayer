@@ -50,8 +50,13 @@ jobs:
             libxkbcommon-dev \
             libxkbcommon-x11-dev
 
-      - name: Show vcpkg version
+      - name: Setup vcpkg
         run: |
+          if [ ! -x third_party/vcpkg/vcpkg ]; then
+            rm -rf third_party/vcpkg
+            git clone --depth 1 https://github.com/microsoft/vcpkg.git third_party/vcpkg
+            ./third_party/vcpkg/bootstrap-vcpkg.sh
+          fi
           third_party/vcpkg/vcpkg version
 
       - name: Prewarm vcpkg binary cache
