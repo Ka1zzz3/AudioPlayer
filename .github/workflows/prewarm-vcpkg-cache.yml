@@ -33,6 +33,9 @@ jobs:
             libgl1-mesa-dev \
             libx11-dev \
             libx11-xcb-dev \
+            libsm-dev \
+            libice-dev \
+            libxcb-xinput-dev \
             libxrender-dev \
             libxi-dev \
             libglu1-mesa-dev \
