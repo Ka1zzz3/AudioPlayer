@@ -13,6 +13,17 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Free runner disk space
+        run: |
+          echo "Disk before cleanup"
+          df -h
+          sudo apt-get clean || true
+          sudo rm -rf /var/lib/apt/lists/* || true
+          sudo rm -rf /opt/hostedtoolcache || true
+          rm -rf "$RUNNER_TEMP"/* || true
+          echo "Disk after cleanup"
+          df -h
+
       - name: Install build dependencies
         run: |
           sudo apt-get update
@@ -75,7 +86,7 @@ jobs:
         run: |
           rm -rf vcpkg_installed third_party/vcpkg/buildtrees third_party/vcpkg/packages
           mkdir -p "${{ github.workspace }}/vcpkg-binary-cache"
-          third_party/vcpkg/vcpkg install --triplet x64-linux
+          third_party/vcpkg/vcpkg install --triplet x64-linux --clean-after-build
 
       - name: Verify Qt packages installed
         run: |
