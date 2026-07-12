@@ -41,6 +41,7 @@ private slots:
     void fileScannerCreatesAudioFileForSupportedFile();
     void audioFileExtensionLowercasesAndStripsDot();
     void fileScannerScanDirectoryReturnsSupportedFilesAndWarnings();
+    void fileScannerScanDirectoryRecursiveFlagControlsSubdirectoryScanning();
     void fileScannerScanDirectoryHandlesExtensionsCaseInsensitively();
     void fileScannerScanDirectoryMissingDirectoryIsFatal();
     void fileScannerScanDirectoryFilePathIsFatal();
@@ -358,6 +359,38 @@ void ModelBehaviorTest::fileScannerScanDirectoryReturnsSupportedFilesAndWarnings
     QCOMPARE(result.playList.at(0)->durationSeconds(), 0);
     QCOMPARE(result.warnings.size(), 1);
     QVERIFY(result.warnings.at(0).contains(QStringLiteral("notes.txt")));
+}
+
+void ModelBehaviorTest::fileScannerScanDirectoryRecursiveFlagControlsSubdirectoryScanning()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+
+    const QString rootPath = temporaryDirectory.filePath(QStringLiteral("root.mp3"));
+    QFile rootFile(rootPath);
+    QVERIFY(rootFile.open(QIODevice::WriteOnly));
+    QVERIFY(rootFile.write("fake audio") > 0);
+    rootFile.close();
+
+    const QString subDirectoryPath = temporaryDirectory.filePath(QStringLiteral("nested"));
+    QVERIFY(QDir().mkpath(subDirectoryPath));
+    const QString nestedPath = QDir(subDirectoryPath).filePath(QStringLiteral("nested.flac"));
+    QFile nestedFile(nestedPath);
+    QVERIFY(nestedFile.open(QIODevice::WriteOnly));
+    QVERIFY(nestedFile.write("fake audio") > 0);
+    nestedFile.close();
+
+    const ScanResult defaultResult = FileScanner::scanDirectory(temporaryDirectory.path());
+    QVERIFY2(defaultResult.ok(), qPrintable(defaultResult.error));
+    QCOMPARE(defaultResult.playList.size(), 1);
+    QVERIFY(defaultResult.playList.containsPath(QFileInfo(rootPath).absoluteFilePath()));
+    QVERIFY(!defaultResult.playList.containsPath(QFileInfo(nestedPath).absoluteFilePath()));
+
+    const ScanResult recursiveResult = FileScanner::scanDirectory(temporaryDirectory.path(), true);
+    QVERIFY2(recursiveResult.ok(), qPrintable(recursiveResult.error));
+    QCOMPARE(recursiveResult.playList.size(), 2);
+    QVERIFY(recursiveResult.playList.containsPath(QFileInfo(rootPath).absoluteFilePath()));
+    QVERIFY(recursiveResult.playList.containsPath(QFileInfo(nestedPath).absoluteFilePath()));
 }
 
 void ModelBehaviorTest::fileScannerScanDirectoryHandlesExtensionsCaseInsensitively()

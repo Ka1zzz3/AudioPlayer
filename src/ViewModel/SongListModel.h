@@ -39,6 +39,8 @@ public:
     [[nodiscard]] QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
     [[nodiscard]] QHash<int, QByteArray> roleNames() const override;
 
+    // C++-internal access for ViewModel/repository coordination; QML consumes
+    // data through roles and should not depend on the concrete PlayList type.
     [[nodiscard]] const Model::PlayList &playList() const noexcept;
     void setPlayList(Model::PlayList playList);
 

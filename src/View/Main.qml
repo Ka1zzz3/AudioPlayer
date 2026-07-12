@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import QtQuick.Window
 import AudioPlayer 1.0
@@ -174,8 +176,12 @@ Window {
                 model: library.warnings
 
                 Text {
+                    id: warningText
+
+                    required property string modelData
+
                     width: parent.width
-                    text: qsTr("Warning: %1").arg(modelData)
+                    text: qsTr("Warning: %1").arg(warningText.modelData)
                     color: "#9a6600"
                     elide: Text.ElideRight
                 }
@@ -189,6 +195,8 @@ Window {
             model: library.songs
 
             delegate: Rectangle {
+                id: songDelegate
+
                 required property string displayTitle
                 required property string artist
                 required property string album
@@ -213,21 +221,21 @@ Window {
 
                         Text {
                             width: parent.width
-                            text: displayTitle
+                            text: songDelegate.displayTitle
                             font.pixelSize: 16
                             elide: Text.ElideRight
                         }
 
                         Text {
                             width: parent.width
-                            text: root.secondaryText(artist, album)
+                            text: root.secondaryText(songDelegate.artist, songDelegate.album)
                             color: "#606060"
                             elide: Text.ElideRight
                         }
 
                         Text {
                             width: parent.width
-                            text: filePath
+                            text: songDelegate.filePath
                             color: "#808080"
                             font.pixelSize: 11
                             elide: Text.ElideMiddle
@@ -237,14 +245,14 @@ Window {
                     Text {
                         id: extensionText
                         anchors.verticalCenter: parent.verticalCenter
-                        text: extension.length > 0 ? extension : qsTr("unknown")
+                        text: songDelegate.extension.length > 0 ? songDelegate.extension : qsTr("unknown")
                         color: "#606060"
                     }
 
                     Text {
                         id: durationText
                         anchors.verticalCenter: parent.verticalCenter
-                        text: root.formatDuration(durationSeconds)
+                        text: root.formatDuration(songDelegate.durationSeconds)
                         color: "#606060"
                     }
                 }

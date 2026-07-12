@@ -78,6 +78,11 @@ if(AUDIOPLAYER_BUILD_QML_APP)
     qt_add_qml_module(AudioPlayer
         URI AudioPlayer
         VERSION 1.0
+        # Keep the first-iteration resource layout stable while making Qt 6.10
+        # QML policy defaults explicit: QTP0001 is avoided by RESOURCE_PREFIX /,
+        # and QTP0004 by preserving the existing no-extra-qmldirs behavior.
+        RESOURCE_PREFIX /
+        NO_GENERATE_EXTRA_QMLDIRS
         SOURCES
             src/ViewModel/LibraryViewModel.cpp
             src/ViewModel/LibraryViewModel.h

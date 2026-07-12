@@ -74,6 +74,9 @@ const QString &LibraryViewModel::statusMessage() const noexcept
 bool LibraryViewModel::load()
 {
     QString errorMessage;
+    // First-iteration UI wiring uses the concrete JSON repository synchronously.
+    // Introduce an async service/repository boundary before real metadata parsing,
+    // recursive scanning, or large-library work.
     Model::JsonSongRepository repository(m_storagePath);
     std::optional<Model::PlayList> loadedPlayList = repository.load(&errorMessage);
     if (!loadedPlayList.has_value()) {
@@ -121,28 +124,35 @@ bool LibraryViewModel::scanDirectory()
 
 bool LibraryViewModel::scanDirectory(const QString &directoryPath)
 {
-    const Model::ScanResult result = Model::FileScanner::scanDirectory(directoryPath);
+    // Synchronous directory scanning is intentional for the first iteration only.
+    // Move this behind an async scanning service before enabling recursive scans,
+    // real metadata extraction, or large library imports from the UI.
+    Model::ScanResult result = Model::FileScanner::scanDirectory(directoryPath);
     if (!result.ok()) {
-        setLastError(result.error);
+        setLastError(std::move(result.error));
         setWarnings({});
         setStatusMessage(QStringLiteral("Scan failed."));
         return false;
     }
 
-    replacePlayList(std::move(Model::PlayList(result.playList)));
+    const int skippedCount = result.warnings.size();
+    const bool hasWarnings = !result.warnings.isEmpty();
+    replacePlayList(std::move(result.playList));
     setLastError({});
-    setWarnings(result.warnings);
-    setStatusMessage(result.warnings.isEmpty()
+    setWarnings(std::move(result.warnings));
+    setStatusMessage(!hasWarnings
                          ? QStringLiteral("Scanned %1 song(s).").arg(count())
                          : QStringLiteral("Scanned %1 song(s), skipped %2 unsupported file(s).")
                                .arg(count())
-                               .arg(result.warnings.size()));
+                               .arg(skippedCount));
     return true;
 }
 
 bool LibraryViewModel::save()
 {
     QString errorMessage;
+    // First-iteration synchronous concrete repository access; replace with a
+    // service boundary before save/load work can block on larger libraries.
     Model::JsonSongRepository repository(m_storagePath);
     if (!repository.save(m_songs.playList(), &errorMessage)) {
         setLastError(std::move(errorMessage));
