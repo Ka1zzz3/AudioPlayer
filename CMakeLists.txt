@@ -58,8 +58,13 @@ if(AUDIOPLAYER_BUILD_QML_APP)
         src/Model/PlayList.h
     )
 
+    set_target_properties(AudioPlayer PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin"
+    )
+
     target_include_directories(AudioPlayer PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/src"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/ViewModel"
     )
 
     target_link_libraries(AudioPlayer PRIVATE
