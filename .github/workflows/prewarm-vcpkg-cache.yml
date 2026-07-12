@@ -33,6 +33,12 @@ jobs:
             libgl1-mesa-dev \
             libx11-dev \
             libx11-xcb-dev \
+            libxrender-dev \
+            libxi-dev \
+            libglu1-mesa-dev \
+            libfontconfig1-dev \
+            libwayland-dev \
+            wayland-protocols \
             libxcb1-dev \
             libxcb-glx0-dev \
             libxcb-keysyms1-dev \
@@ -70,7 +76,9 @@ jobs:
 
       - name: Verify Qt packages installed
         run: |
-          third_party/vcpkg/vcpkg list | grep -E 'qtbase|qtdeclarative|qtsvg|qtshadertools|qtlanguageserver'
+          third_party/vcpkg/vcpkg list | grep -E 'qtbase|qtdeclarative|qtwayland|qtsvg|qtshadertools|qtlanguageserver'
+          find vcpkg_installed/x64-linux -path '*plugins/platforms*' -type f | sort
+          find vcpkg_installed/x64-linux -path '*plugins/platforms*' -type f | grep -E 'qxcb|qwayland'
 
       - name: Pack vcpkg binary cache
         run: |

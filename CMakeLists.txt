@@ -92,6 +92,14 @@ if(AUDIOPLAYER_BUILD_QML_APP)
             src/View/Main.qml
     )
 
+    if(TARGET Qt6::QXcbIntegrationPlugin)
+        qt_import_plugins(AudioPlayer INCLUDE Qt6::QXcbIntegrationPlugin)
+    endif()
+
+    if(TARGET Qt6::QWaylandIntegrationPlugin)
+        qt_import_plugins(AudioPlayer INCLUDE Qt6::QWaylandIntegrationPlugin)
+    endif()
+
 endif()
 
 include(CTest)

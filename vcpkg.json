@@ -9,12 +9,22 @@
       "name": "qtbase",
       "default-features": false,
       "features": [
+        "fontconfig",
         "gui",
-        "testlib"
+        "testlib",
+        "wayland",
+        "xcb",
+        "xcb-sm",
+        "xcb-xlib",
+        "xrender"
       ]
     },
     {
       "name": "qtdeclarative",
+      "default-features": false
+    },
+    {
+      "name": "qtwayland",
       "default-features": false
     }
   ],
@@ -26,6 +36,10 @@
     },
     {
       "name": "qtdeclarative",
+      "version": "6.10.3"
+    },
+    {
+      "name": "qtwayland",
       "version": "6.10.3"
     },
     {
