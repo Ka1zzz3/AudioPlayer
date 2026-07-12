@@ -1,0 +1,78 @@
+name: Prewarm vcpkg Qt cache
+
+on:
+  workflow_dispatch:
+
+jobs:
+  prewarm:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            ninja-build \
+            cmake \
+            build-essential \
+            pkg-config \
+            autoconf \
+            autoconf-archive \
+            automake \
+            libtool \
+            bison \
+            flex \
+            gperf \
+            python3 \
+            perl \
+            libgl1-mesa-dev \
+            libx11-dev \
+            libx11-xcb-dev \
+            libxcb1-dev \
+            libxcb-glx0-dev \
+            libxcb-keysyms1-dev \
+            libxcb-image0-dev \
+            libxcb-shm0-dev \
+            libxcb-icccm4-dev \
+            libxcb-sync-dev \
+            libxcb-xfixes0-dev \
+            libxcb-shape0-dev \
+            libxcb-randr0-dev \
+            libxcb-render-util0-dev \
+            libxcb-util-dev \
+            libxcb-xinerama0-dev \
+            libxcb-cursor-dev \
+            libxkbcommon-dev \
+            libxkbcommon-x11-dev
+
+      - name: Show vcpkg version
+        run: |
+          third_party/vcpkg/vcpkg version
+
+      - name: Prewarm vcpkg binary cache
+        env:
+          VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/vcpkg-binary-cache,readwrite
+        run: |
+          mkdir -p "${{ github.workspace }}/vcpkg-binary-cache"
+          third_party/vcpkg/vcpkg install --triplet x64-linux
+
+      - name: Verify Qt packages installed
+        run: |
+          third_party/vcpkg/vcpkg list | grep -E 'qtbase|qtdeclarative|qtsvg|qtshadertools|qtlanguageserver'
+
+      - name: Pack vcpkg binary cache
+        run: |
+          tar -czf vcpkg-binary-cache.tar.gz vcpkg-binary-cache
+          ls -lh vcpkg-binary-cache.tar.gz
+
+      - name: Upload vcpkg binary cache artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vcpkg-binary-cache-x64-linux
+          path: vcpkg-binary-cache.tar.gz
+          retention-days: 7
