@@ -27,6 +27,15 @@ private slots:
     void audioFileUsesTrimmedTitleBeforePathForDisplayTitle();
     void playListTracksCurrentFileAndTotalDuration();
     void jsonSongRepositorySavesAndLoadsPlaylist();
+    void jsonSongRepositoryEmptyStoragePathFailsWithError();
+    void jsonSongRepositoryCorruptJsonLoadFails();
+    void jsonSongRepositoryJsonRootNotObjectLoadFails();
+    void jsonSongRepositoryMissingSongsArrayLoadFails();
+    void jsonSongRepositorySongEntryMissingFilePathLoadFails();
+    void jsonSongRepositorySongEntryEmptyFilePathLoadFails();
+    void jsonSongRepositoryNonIntegerDurationLoadFails();
+    void jsonSongRepositorySaveInvalidAudioFileFails();
+    void jsonSongRepositoryScanDirectorySaveLoadIntegration();
     void fileScannerRecognizesSupportedExtensionsCaseInsensitively();
     void fileScannerRejectsMissingOrUnsupportedFiles();
     void fileScannerCreatesAudioFileForSupportedFile();
@@ -95,6 +104,183 @@ void ModelBehaviorTest::jsonSongRepositorySavesAndLoadsPlaylist()
     QCOMPARE(loaded->size(), 2);
     QCOMPARE(*loaded->at(0), *playList.at(0));
     QCOMPARE(*loaded->at(1), *playList.at(1));
+}
+
+void ModelBehaviorTest::jsonSongRepositoryEmptyStoragePathFailsWithError()
+{
+    JsonSongRepository repository{QString()};
+    PlayList playList;
+    playList.add(AudioFile(QStringLiteral("/music/song.mp3")));
+
+    QString saveError;
+    QVERIFY(!repository.save(playList, &saveError));
+    QVERIFY(!saveError.isEmpty());
+
+    QString loadError;
+    const std::optional<PlayList> loaded = repository.load(&loadError);
+    QVERIFY(!loaded.has_value());
+    QVERIFY(!loadError.isEmpty());
+}
+
+void ModelBehaviorTest::jsonSongRepositoryCorruptJsonLoadFails()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+    const QString storagePath = temporaryDirectory.filePath(QStringLiteral("library.json"));
+    QFile storageFile(storagePath);
+    QVERIFY(storageFile.open(QIODevice::WriteOnly));
+    QVERIFY(storageFile.write("{ not valid json") > 0);
+    storageFile.close();
+    JsonSongRepository repository(storagePath);
+
+    QString errorMessage;
+    const std::optional<PlayList> loaded = repository.load(&errorMessage);
+
+    QVERIFY(!loaded.has_value());
+    QVERIFY(!errorMessage.isEmpty());
+}
+
+void ModelBehaviorTest::jsonSongRepositoryJsonRootNotObjectLoadFails()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+    const QString storagePath = temporaryDirectory.filePath(QStringLiteral("library.json"));
+    QFile storageFile(storagePath);
+    QVERIFY(storageFile.open(QIODevice::WriteOnly));
+    QVERIFY(storageFile.write("[]") > 0);
+    storageFile.close();
+    JsonSongRepository repository(storagePath);
+
+    QString errorMessage;
+    const std::optional<PlayList> loaded = repository.load(&errorMessage);
+
+    QVERIFY(!loaded.has_value());
+    QVERIFY(!errorMessage.isEmpty());
+}
+
+void ModelBehaviorTest::jsonSongRepositoryMissingSongsArrayLoadFails()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+    const QString storagePath = temporaryDirectory.filePath(QStringLiteral("library.json"));
+    QFile storageFile(storagePath);
+    QVERIFY(storageFile.open(QIODevice::WriteOnly));
+    QVERIFY(storageFile.write(R"({"schemaVersion":1})") > 0);
+    storageFile.close();
+    JsonSongRepository repository(storagePath);
+
+    QString errorMessage;
+    const std::optional<PlayList> loaded = repository.load(&errorMessage);
+
+    QVERIFY(!loaded.has_value());
+    QVERIFY(!errorMessage.isEmpty());
+}
+
+void ModelBehaviorTest::jsonSongRepositorySongEntryMissingFilePathLoadFails()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+    const QString storagePath = temporaryDirectory.filePath(QStringLiteral("library.json"));
+    QFile storageFile(storagePath);
+    QVERIFY(storageFile.open(QIODevice::WriteOnly));
+    QVERIFY(storageFile.write(R"({"schemaVersion":1,"songs":[{"title":"Missing path"}]})") > 0);
+    storageFile.close();
+    JsonSongRepository repository(storagePath);
+
+    QString errorMessage;
+    const std::optional<PlayList> loaded = repository.load(&errorMessage);
+
+    QVERIFY(!loaded.has_value());
+    QVERIFY(!errorMessage.isEmpty());
+}
+
+void ModelBehaviorTest::jsonSongRepositorySongEntryEmptyFilePathLoadFails()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+    const QString storagePath = temporaryDirectory.filePath(QStringLiteral("library.json"));
+    QFile storageFile(storagePath);
+    QVERIFY(storageFile.open(QIODevice::WriteOnly));
+    QVERIFY(storageFile.write(R"({"schemaVersion":1,"songs":[{"filePath":""}]})") > 0);
+    storageFile.close();
+    JsonSongRepository repository(storagePath);
+
+    QString errorMessage;
+    const std::optional<PlayList> loaded = repository.load(&errorMessage);
+
+    QVERIFY(!loaded.has_value());
+    QVERIFY(!errorMessage.isEmpty());
+}
+
+void ModelBehaviorTest::jsonSongRepositoryNonIntegerDurationLoadFails()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+    const QString storagePath = temporaryDirectory.filePath(QStringLiteral("library.json"));
+    QFile storageFile(storagePath);
+    QVERIFY(storageFile.open(QIODevice::WriteOnly));
+    QVERIFY(storageFile.write(R"({"schemaVersion":1,"songs":[{"filePath":"/music/song.mp3","durationSeconds":1.5}]})") > 0);
+    storageFile.close();
+    JsonSongRepository repository(storagePath);
+
+    QString errorMessage;
+    const std::optional<PlayList> loaded = repository.load(&errorMessage);
+
+    QVERIFY(!loaded.has_value());
+    QVERIFY(!errorMessage.isEmpty());
+}
+
+void ModelBehaviorTest::jsonSongRepositorySaveInvalidAudioFileFails()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+    JsonSongRepository repository(temporaryDirectory.filePath(QStringLiteral("library.json")));
+    PlayList playList;
+    playList.add(AudioFile());
+
+    QString errorMessage;
+
+    QVERIFY(!repository.save(playList, &errorMessage));
+    QVERIFY(!errorMessage.isEmpty());
+}
+
+void ModelBehaviorTest::jsonSongRepositoryScanDirectorySaveLoadIntegration()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+    const QString scanPath = temporaryDirectory.filePath(QStringLiteral("scan"));
+    QVERIFY(QDir().mkpath(scanPath));
+    const QString firstPath = QDir(scanPath).filePath(QStringLiteral("First Song.MP3"));
+    const QString secondPath = QDir(scanPath).filePath(QStringLiteral("Second Song.flac"));
+    for (const QString &path : {firstPath, secondPath}) {
+        QFile file(path);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        QVERIFY(file.write("fake audio") > 0);
+        file.close();
+    }
+
+    const ScanResult scanResult = FileScanner::scanDirectory(scanPath);
+    QVERIFY2(scanResult.ok(), qPrintable(scanResult.error));
+    QCOMPARE(scanResult.playList.size(), 2);
+    JsonSongRepository repository(temporaryDirectory.filePath(QStringLiteral("library.json")));
+    QString errorMessage;
+    QVERIFY2(repository.save(scanResult.playList, &errorMessage), qPrintable(errorMessage));
+
+    const std::optional<PlayList> loaded = repository.load(&errorMessage);
+
+    QVERIFY2(loaded.has_value(), qPrintable(errorMessage));
+    QCOMPARE(loaded->size(), scanResult.playList.size());
+    for (int index = 0; index < scanResult.playList.size(); ++index) {
+        const AudioFile *scannedFile = scanResult.playList.at(index);
+        const AudioFile *loadedFile = loaded->at(index);
+        QVERIFY(scannedFile != nullptr);
+        QVERIFY(loadedFile != nullptr);
+        QCOMPARE(loadedFile->filePath(), scannedFile->filePath());
+        QCOMPARE(loadedFile->title(), QFileInfo(scannedFile->filePath()).completeBaseName());
+        QCOMPARE(loadedFile->artist(), QStringLiteral("Unknown Artist"));
+        QCOMPARE(loadedFile->album(), QStringLiteral("Unknown Album"));
+        QCOMPARE(loadedFile->durationSeconds(), 0);
+    }
 }
 
 void ModelBehaviorTest::fileScannerRecognizesSupportedExtensionsCaseInsensitively()
