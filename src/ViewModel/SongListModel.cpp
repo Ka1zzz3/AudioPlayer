@@ -45,6 +45,8 @@ QVariant SongListModel::data(const QModelIndex &index, int role) const
     case DisplayTitleRole:
     case Qt::DisplayRole:
         return audioFile->displayTitle();
+    case ExtensionRole:
+        return audioFile->extension();
     default:
         return {};
     }
@@ -59,6 +61,7 @@ QHash<int, QByteArray> SongListModel::roleNames() const
         {AlbumRole, "album"},
         {DurationSecondsRole, "durationSeconds"},
         {DisplayTitleRole, "displayTitle"},
+        {ExtensionRole, "extension"},
     };
 }
 

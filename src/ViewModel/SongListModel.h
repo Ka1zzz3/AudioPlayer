@@ -29,6 +29,7 @@ public:
         AlbumRole,
         DurationSecondsRole,
         DisplayTitleRole,
+        ExtensionRole,
     };
     Q_ENUM(SongRole)
 

@@ -6,6 +6,7 @@
 
 #include <QtTest/QtTest>
 
+#include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QSignalSpy>
@@ -24,8 +25,12 @@ class ViewModelBehaviorTest : public QObject
 private slots:
     void successfulLoadClearsErrorsAndUpdatesCountAndRoles();
     void failedLoadSetsLastError();
-    void refreshSkipsMissingFileAndReportsError();
+    void refreshSkipsMissingFileAndReportsWarning();
     void successfulRefreshClearsStaleErrors();
+    void scanDirectoryPathEmitsChangeSignal();
+    void scanDirectoryUpdatesCountRolesWarningsAndStatus();
+    void scanMissingDirectorySetsFatalErrorAndPreservesList();
+    void saveAfterScanCanBeLoadedByNewViewModel();
     void songListModelRolesExposeExpectedValues();
 };
 
@@ -113,7 +118,7 @@ void ViewModelBehaviorTest::failedLoadSetsLastError()
     QCOMPARE(failedSpy.takeFirst().at(0).toString(), viewModel.lastError());
 }
 
-void ViewModelBehaviorTest::refreshSkipsMissingFileAndReportsError()
+void ViewModelBehaviorTest::refreshSkipsMissingFileAndReportsWarning()
 {
     QTemporaryDir temporaryDirectory;
     QVERIFY(temporaryDirectory.isValid());
@@ -134,9 +139,10 @@ void ViewModelBehaviorTest::refreshSkipsMissingFileAndReportsError()
     QVERIFY(viewModel.refresh());
     QCOMPARE(viewModel.count(), 1);
     QCOMPARE(viewModel.songs()->rowCount(), 1);
-    QVERIFY(!viewModel.lastError().isEmpty());
-    QVERIFY(viewModel.lastError().contains(QStringLiteral("1")));
-    QVERIFY(viewModel.lastError().contains(missingPath));
+    QCOMPARE(viewModel.lastError(), QString());
+    QCOMPARE(viewModel.warnings().size(), 1);
+    QCOMPARE(viewModel.warnings().at(0), missingPath);
+    QVERIFY(viewModel.statusMessage().contains(QStringLiteral("skipped"), Qt::CaseInsensitive));
     QCOMPARE(viewModel.songs()->data(viewModel.songs()->index(0, 0), SongListModel::FilePathRole).toString(), keepPath);
     QCOMPARE(viewModel.songs()->data(viewModel.songs()->index(0, 0), SongListModel::TitleRole).toString(), QStringLiteral("Keep"));
     QCOMPARE(refreshedSpy.count(), 1);
@@ -161,8 +167,117 @@ void ViewModelBehaviorTest::successfulRefreshClearsStaleErrors()
 
     QVERIFY(viewModel.refresh());
     QCOMPARE(viewModel.lastError(), QString());
+    QVERIFY(viewModel.warnings().isEmpty());
     QCOMPARE(viewModel.count(), 1);
     QCOMPARE(viewModel.songs()->data(viewModel.songs()->index(0, 0), SongListModel::TitleRole).toString(), QStringLiteral("Fresh"));
+}
+
+void ViewModelBehaviorTest::scanDirectoryPathEmitsChangeSignal()
+{
+    LibraryViewModel viewModel;
+    QSignalSpy spy(&viewModel, &LibraryViewModel::scanDirectoryPathChanged);
+
+    viewModel.setScanDirectoryPath(QStringLiteral("/music"));
+    viewModel.setScanDirectoryPath(QStringLiteral("/music"));
+    viewModel.setScanDirectoryPath(QStringLiteral("/other"));
+
+    QCOMPARE(viewModel.scanDirectoryPath(), QStringLiteral("/other"));
+    QCOMPARE(spy.count(), 2);
+}
+
+void ViewModelBehaviorTest::scanDirectoryUpdatesCountRolesWarningsAndStatus()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+    const QString scanPath = temporaryDirectory.filePath(QStringLiteral("scan"));
+    QVERIFY(QDir().mkpath(scanPath));
+    const QString audioPath = QDir(scanPath).filePath(QStringLiteral("Scanned Track.MP3"));
+    QFile audioFile(audioPath);
+    QVERIFY(audioFile.open(QIODevice::WriteOnly));
+    QVERIFY(audioFile.write("fake audio bytes") > 0);
+    audioFile.close();
+    QFile textFile(QDir(scanPath).filePath(QStringLiteral("notes.txt")));
+    QVERIFY(textFile.open(QIODevice::WriteOnly));
+    QVERIFY(textFile.write("not audio") > 0);
+    textFile.close();
+
+    LibraryViewModel viewModel;
+    QSignalSpy countSpy(&viewModel, &LibraryViewModel::countChanged);
+    QSignalSpy warningsSpy(&viewModel, &LibraryViewModel::warningsChanged);
+    viewModel.setScanDirectoryPath(scanPath);
+
+    QVERIFY(viewModel.scanDirectory());
+
+    QCOMPARE(viewModel.lastError(), QString());
+    QCOMPARE(viewModel.count(), 1);
+    QCOMPARE(viewModel.songs()->rowCount(), 1);
+    QCOMPARE(viewModel.warnings().size(), 1);
+    QVERIFY(viewModel.warnings().at(0).contains(QStringLiteral("notes.txt")));
+    QVERIFY(viewModel.statusMessage().contains(QStringLiteral("Scanned")));
+    QCOMPARE(countSpy.count(), 1);
+    QCOMPARE(warningsSpy.count(), 1);
+
+    const QModelIndex index = viewModel.songs()->index(0, 0);
+    QCOMPARE(viewModel.songs()->data(index, SongListModel::FilePathRole).toString(), QFileInfo(audioPath).absoluteFilePath());
+    QCOMPARE(viewModel.songs()->data(index, SongListModel::TitleRole).toString(), QStringLiteral("Scanned Track"));
+    QCOMPARE(viewModel.songs()->data(index, SongListModel::ArtistRole).toString(), QStringLiteral("Unknown Artist"));
+    QCOMPARE(viewModel.songs()->data(index, SongListModel::AlbumRole).toString(), QStringLiteral("Unknown Album"));
+    QCOMPARE(viewModel.songs()->data(index, SongListModel::DurationSecondsRole).toLongLong(), 0);
+    QCOMPARE(viewModel.songs()->data(index, SongListModel::ExtensionRole).toString(), QStringLiteral("mp3"));
+}
+
+void ViewModelBehaviorTest::scanMissingDirectorySetsFatalErrorAndPreservesList()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+    const QString audioPath = createAudioFile(temporaryDirectory, QStringLiteral("Existing.mp3"));
+    PlayList playList;
+    playList.add(AudioFile(audioPath, QStringLiteral("Existing")));
+    const QString storagePath = savePlayList(temporaryDirectory, playList);
+
+    LibraryViewModel viewModel;
+    viewModel.setStoragePath(storagePath);
+    QVERIFY(viewModel.load());
+    QCOMPARE(viewModel.count(), 1);
+
+    QVERIFY(!viewModel.scanDirectory(temporaryDirectory.filePath(QStringLiteral("missing"))));
+
+    QVERIFY(!viewModel.lastError().isEmpty());
+    QCOMPARE(viewModel.count(), 1);
+    QCOMPARE(viewModel.songs()->data(viewModel.songs()->index(0, 0), SongListModel::FilePathRole).toString(), audioPath);
+}
+
+void ViewModelBehaviorTest::saveAfterScanCanBeLoadedByNewViewModel()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+    const QString scanPath = temporaryDirectory.filePath(QStringLiteral("scan"));
+    QVERIFY(QDir().mkpath(scanPath));
+    const QString audioPath = QDir(scanPath).filePath(QStringLiteral("Saved Track.flac"));
+    QFile audioFile(audioPath);
+    QVERIFY(audioFile.open(QIODevice::WriteOnly));
+    QVERIFY(audioFile.write("fake audio bytes") > 0);
+    audioFile.close();
+    const QString storagePath = temporaryDirectory.filePath(QStringLiteral("library.json"));
+
+    LibraryViewModel scanner;
+    scanner.setScanDirectoryPath(scanPath);
+    scanner.setStoragePath(storagePath);
+    QVERIFY(scanner.scanDirectory());
+    QVERIFY(scanner.save());
+    QCOMPARE(scanner.lastError(), QString());
+
+    LibraryViewModel loaded;
+    loaded.setStoragePath(storagePath);
+    QVERIFY(loaded.load());
+
+    QCOMPARE(loaded.count(), 1);
+    const QModelIndex index = loaded.songs()->index(0, 0);
+    QCOMPARE(loaded.songs()->data(index, SongListModel::FilePathRole).toString(), QFileInfo(audioPath).absoluteFilePath());
+    QCOMPARE(loaded.songs()->data(index, SongListModel::TitleRole).toString(), QStringLiteral("Saved Track"));
+    QCOMPARE(loaded.songs()->data(index, SongListModel::ArtistRole).toString(), QStringLiteral("Unknown Artist"));
+    QCOMPARE(loaded.songs()->data(index, SongListModel::AlbumRole).toString(), QStringLiteral("Unknown Album"));
+    QCOMPARE(loaded.songs()->data(index, SongListModel::DurationSecondsRole).toLongLong(), 0);
 }
 
 void ViewModelBehaviorTest::songListModelRolesExposeExpectedValues()
@@ -188,6 +303,7 @@ void ViewModelBehaviorTest::songListModelRolesExposeExpectedValues()
     QCOMPARE(model.data(index, SongListModel::AlbumRole).toString(), QStringLiteral("Album"));
     QCOMPARE(model.data(index, SongListModel::DurationSecondsRole).toLongLong(), 321);
     QCOMPARE(model.data(index, SongListModel::DisplayTitleRole).toString(), QStringLiteral("Title"));
+    QCOMPARE(model.data(index, SongListModel::ExtensionRole).toString(), QStringLiteral("mp3"));
     QCOMPARE(model.data(index, Qt::DisplayRole).toString(), QStringLiteral("Title"));
 
     const QHash<int, QByteArray> roles = model.roleNames();
@@ -197,6 +313,7 @@ void ViewModelBehaviorTest::songListModelRolesExposeExpectedValues()
     QCOMPARE(roles.value(SongListModel::AlbumRole), QByteArray("album"));
     QCOMPARE(roles.value(SongListModel::DurationSecondsRole), QByteArray("durationSeconds"));
     QCOMPARE(roles.value(SongListModel::DisplayTitleRole), QByteArray("displayTitle"));
+    QCOMPARE(roles.value(SongListModel::ExtensionRole), QByteArray("extension"));
     QVERIFY(!model.data(QModelIndex(), SongListModel::TitleRole).isValid());
 }
 
