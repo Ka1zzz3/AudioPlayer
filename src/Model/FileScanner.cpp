@@ -1,6 +1,11 @@
 #include "Model/FileScanner.h"
 
+#include <QDir>
+#include <QDirIterator>
 #include <QFileInfo>
+
+#include <algorithm>
+#include <utility>
 
 namespace AudioPlayer::Model {
 namespace {
@@ -24,6 +29,11 @@ QString titleFromFileInfo(const QFileInfo &fileInfo)
 }
 
 } // namespace
+
+bool ScanResult::ok() const noexcept
+{
+    return error.isEmpty();
+}
 
 QStringList FileScanner::supportedExtensions()
 {
@@ -54,6 +64,65 @@ std::optional<AudioFile> FileScanner::scanFile(const QString &filePath)
                      QString::fromLatin1(unknownArtist),
                      QString::fromLatin1(unknownAlbum),
                      0);
+}
+
+ScanResult FileScanner::scanDirectory(const QString &directoryPath, bool recursive)
+{
+    ScanResult result;
+    const QString trimmedPath = directoryPath.trimmed();
+    if (trimmedPath.isEmpty()) {
+        result.error = QStringLiteral("Directory path is empty.");
+        return result;
+    }
+
+    const QFileInfo directoryInfo(trimmedPath);
+    if (!directoryInfo.exists()) {
+        result.error = QStringLiteral("Directory does not exist: %1").arg(trimmedPath);
+        return result;
+    }
+    if (!directoryInfo.isDir()) {
+        result.error = QStringLiteral("Path is not a directory: %1").arg(directoryInfo.absoluteFilePath());
+        return result;
+    }
+    if (!directoryInfo.isReadable()) {
+        result.error = QStringLiteral("Directory is not readable: %1").arg(directoryInfo.absoluteFilePath());
+        return result;
+    }
+
+    const QDir directory(directoryInfo.absoluteFilePath());
+    const QDirIterator::IteratorFlags iteratorFlags = recursive
+        ? QDirIterator::Subdirectories
+        : QDirIterator::NoIteratorFlags;
+    QDirIterator iterator(directory.absolutePath(),
+                          QDir::Files | QDir::NoDotAndDotDot | QDir::Readable | QDir::Hidden,
+                          iteratorFlags);
+
+    QVector<AudioFile> supportedFiles;
+    while (iterator.hasNext()) {
+        iterator.next();
+        const QFileInfo fileInfo = iterator.fileInfo();
+        const QString absoluteFilePath = fileInfo.absoluteFilePath();
+        if (!isSupportedAudioFile(absoluteFilePath)) {
+            result.warnings.append(QStringLiteral("Unsupported file skipped: %1").arg(absoluteFilePath));
+            continue;
+        }
+
+        supportedFiles.append(AudioFile(absoluteFilePath,
+                                        titleFromFileInfo(fileInfo),
+                                        QString::fromLatin1(unknownArtist),
+                                        QString::fromLatin1(unknownAlbum),
+                                        0));
+    }
+
+    std::sort(supportedFiles.begin(), supportedFiles.end(), [](const AudioFile &left, const AudioFile &right) {
+        return QString::compare(left.filePath(), right.filePath(), Qt::CaseSensitive) < 0;
+    });
+
+    for (AudioFile &audioFile : supportedFiles) {
+        result.playList.add(std::move(audioFile));
+    }
+
+    return result;
 }
 
 } // namespace AudioPlayer::Model

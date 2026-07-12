@@ -29,6 +29,7 @@ public:
     void setAlbum(QString album);
 
     [[nodiscard]] qint64 durationSeconds() const noexcept;
+    [[nodiscard]] QString extension() const;
     void setDurationSeconds(qint64 durationSeconds) noexcept;
 
     [[nodiscard]] bool isValid() const;

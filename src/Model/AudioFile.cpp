@@ -2,6 +2,8 @@
 
 #include <utility>
 
+#include <QFileInfo>
+
 namespace AudioPlayer::Model {
 
 AudioFile::AudioFile(QString filePath)
@@ -65,6 +67,11 @@ void AudioFile::setAlbum(QString album)
 qint64 AudioFile::durationSeconds() const noexcept
 {
     return m_durationSeconds;
+}
+
+QString AudioFile::extension() const
+{
+    return QFileInfo(m_filePath).suffix().toLower();
 }
 
 void AudioFile::setDurationSeconds(qint64 durationSeconds) noexcept
