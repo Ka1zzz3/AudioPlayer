@@ -54,7 +54,8 @@ jobs:
         run: |
           if [ ! -x third_party/vcpkg/vcpkg ]; then
             rm -rf third_party/vcpkg
-            git clone --depth 1 https://github.com/microsoft/vcpkg.git third_party/vcpkg
+            git clone https://github.com/microsoft/vcpkg.git third_party/vcpkg
+            git -C third_party/vcpkg checkout 03e366fb91e38b9432ebd5f8cc79f7c8f55e96ab
             ./third_party/vcpkg/bootstrap-vcpkg.sh
           fi
           third_party/vcpkg/vcpkg version
@@ -63,6 +64,7 @@ jobs:
         env:
           VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/vcpkg-binary-cache,readwrite
         run: |
+          rm -rf vcpkg_installed third_party/vcpkg/buildtrees third_party/vcpkg/packages
           mkdir -p "${{ github.workspace }}/vcpkg-binary-cache"
           third_party/vcpkg/vcpkg install --triplet x64-linux
 

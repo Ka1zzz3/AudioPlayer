@@ -2,6 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
   "name": "audioplayer",
   "version-string": "0.1.0",
+  "builtin-baseline": "03e366fb91e38b9432ebd5f8cc79f7c8f55e96ab",
   "dependencies": [
     "nlohmann-json",
     {
@@ -15,6 +16,29 @@
     {
       "name": "qtdeclarative",
       "default-features": false
+    }
+  ],
+  "overrides": [
+    {
+      "name": "qtbase",
+      "version": "6.10.3",
+      "port-version": 1
+    },
+    {
+      "name": "qtdeclarative",
+      "version": "6.10.3"
+    },
+    {
+      "name": "qtlanguageserver",
+      "version": "6.10.3"
+    },
+    {
+      "name": "qtshadertools",
+      "version": "6.10.3"
+    },
+    {
+      "name": "qtsvg",
+      "version": "6.10.3"
     }
   ]
 }
