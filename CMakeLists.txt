@@ -75,6 +75,10 @@ if(AUDIOPLAYER_BUILD_QML_APP)
         nlohmann_json::nlohmann_json
     )
 
+    set_source_files_properties(src/View/Main.qml PROPERTIES
+        QT_RESOURCE_ALIAS Main.qml
+    )
+
     qt_add_qml_module(AudioPlayer
         URI AudioPlayer
         VERSION 1.0
