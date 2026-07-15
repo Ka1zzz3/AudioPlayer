@@ -72,6 +72,26 @@ target_link_libraries(AudioPlayerPlaybackServiceContractTest PRIVATE
 
 add_test(NAME AudioPlayerPlaybackServiceContractTest COMMAND AudioPlayerPlaybackServiceContractTest)
 
+qt_add_executable(AudioPlayerPlaybackUseCaseTest
+    playback_usecase_test.cpp
+    ../src/Model/AudioFile.cpp
+    ../src/Model/Service/PlaybackUseCase.cpp
+    ../src/Model/Service/PlaybackUseCase.h
+    ../src/Model/Service/IPlaybackService.h
+    ../src/Model/Service/PlaybackTypes.h
+)
+
+target_include_directories(AudioPlayerPlaybackUseCaseTest PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/../src"
+)
+
+target_link_libraries(AudioPlayerPlaybackUseCaseTest PRIVATE
+    Qt6::Core
+    Qt6::Test
+)
+
+add_test(NAME AudioPlayerPlaybackUseCaseTest COMMAND AudioPlayerPlaybackUseCaseTest)
+
 qt_add_executable(AudioPlayerViewModelBehaviorTest
     viewmodel_behavior_test.cpp
     ../src/Model/AudioFile.cpp
