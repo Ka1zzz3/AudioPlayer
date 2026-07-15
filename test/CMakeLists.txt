@@ -34,6 +34,27 @@ target_link_libraries(AudioPlayerModelBehaviorTest PRIVATE
 
 add_test(NAME AudioPlayerModelBehaviorTest COMMAND AudioPlayerModelBehaviorTest)
 
+qt_add_executable(AudioPlayerLibraryUseCaseTest
+    library_usecase_test.cpp
+    ../src/Model/AudioFile.cpp
+    ../src/Model/FileScanner.cpp
+    ../src/Model/JsonSongRepository.cpp
+    ../src/Model/PlayList.cpp
+    ../src/Model/Service/LibraryUseCase.cpp
+)
+
+target_include_directories(AudioPlayerLibraryUseCaseTest PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/../src"
+)
+
+target_link_libraries(AudioPlayerLibraryUseCaseTest PRIVATE
+    Qt6::Core
+    Qt6::Test
+    nlohmann_json::nlohmann_json
+)
+
+add_test(NAME AudioPlayerLibraryUseCaseTest COMMAND AudioPlayerLibraryUseCaseTest)
+
 qt_add_executable(AudioPlayerViewModelBehaviorTest
     viewmodel_behavior_test.cpp
     ../src/Model/AudioFile.cpp

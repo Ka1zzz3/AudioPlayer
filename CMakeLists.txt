@@ -56,6 +56,8 @@ if(AUDIOPLAYER_BUILD_QML_APP)
         src/Model/JsonSongRepository.h
         src/Model/PlayList.cpp
         src/Model/PlayList.h
+        src/Model/Service/LibraryUseCase.cpp
+        src/Model/Service/LibraryUseCase.h
     )
 
     set_target_properties(AudioPlayer PROPERTIES
