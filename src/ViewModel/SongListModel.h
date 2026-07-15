@@ -7,19 +7,12 @@
 #include <QModelIndex>
 #include <QByteArray>
 #include <QVariant>
-#if __has_include(<QtQmlIntegration/qqmlintegration.h>)
-#include <QtQmlIntegration/qqmlintegration.h>
-#else
-#define QML_NAMED_ELEMENT(NAME)
-#define QML_ANONYMOUS
-#endif
 
 namespace AudioPlayer::ViewModel {
 
 class SongListModel : public QAbstractListModel
 {
     Q_OBJECT
-    QML_ANONYMOUS
 
 public:
     enum SongRole {

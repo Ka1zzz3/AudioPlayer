@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.16)
 
 project(AudioPlayer
     VERSION 0.1.0
-    DESCRIPTION "Qt6 QML MVVM local audio player"
+    DESCRIPTION "Qt6 Widgets MVVM local audio player"
     LANGUAGES CXX
 )
 
@@ -10,8 +10,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-option(AUDIOPLAYER_BUILD_QML_APP "Build the Qt Quick/QML application target" ON)
-option(AUDIOPLAYER_BUILD_WIDGETS_APP "Build the Qt Widgets application target" ON)
+option(AUDIOPLAYER_BUILD_APP "Build the Qt Widgets application target" ON)
 
 find_package(Qt6 6.4 QUIET COMPONENTS Core Gui)
 if(NOT Qt6_FOUND)
@@ -22,26 +21,13 @@ if(NOT Qt6_FOUND)
     )
 endif()
 
-if(AUDIOPLAYER_BUILD_WIDGETS_APP)
+if(AUDIOPLAYER_BUILD_APP)
     find_package(Qt6 6.4 QUIET COMPONENTS Widgets)
     if(NOT Qt6Widgets_FOUND)
-        message(WARNING
-            "AUDIOPLAYER_BUILD_WIDGETS_APP=ON requires Qt6 Widgets, but Qt6Widgets was not found. "
-            "Skipping the AudioPlayerWidgets target. Install the Qt Widgets development module or "
-            "configure with -DAUDIOPLAYER_BUILD_WIDGETS_APP=OFF."
-        )
-    endif()
-endif()
-
-if(AUDIOPLAYER_BUILD_QML_APP)
-    find_package(Qt6 6.4 QUIET COMPONENTS Qml Quick)
-    if(NOT Qt6Qml_FOUND OR NOT Qt6Quick_FOUND)
         message(FATAL_ERROR
-            "AUDIOPLAYER_BUILD_QML_APP=ON requires Qt6 6.4+ Qml and Quick components. "
-            "Install Qt Declarative/QML development packages or configure CMAKE_PREFIX_PATH "
-            "to a Qt installation that provides Qt6Qml and Qt6Quick. "
-            "For model/viewmodel-only tests with vcpkg qtbase, configure with "
-            "-DAUDIOPLAYER_BUILD_QML_APP=OFF."
+            "AUDIOPLAYER_BUILD_APP=ON requires Qt6 Widgets. "
+            "Install the Qt Widgets development module or configure with "
+            "-DAUDIOPLAYER_BUILD_APP=OFF for model/viewmodel-only tests."
         )
     endif()
 endif()
@@ -57,8 +43,8 @@ endif()
 
 qt_standard_project_setup(REQUIRES 6.4)
 
-if(AUDIOPLAYER_BUILD_WIDGETS_APP AND Qt6Widgets_FOUND)
-    qt_add_executable(AudioPlayerWidgets
+if(AUDIOPLAYER_BUILD_APP)
+    qt_add_executable(AudioPlayer
         src/App/AppCompositionRoot.cpp
         src/App/AppCompositionRoot.h
         src/App/widgets_main.cpp
@@ -83,38 +69,6 @@ if(AUDIOPLAYER_BUILD_WIDGETS_APP AND Qt6Widgets_FOUND)
         src/ViewModel/SongListModel.h
     )
 
-    set_target_properties(AudioPlayerWidgets PROPERTIES
-        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin"
-    )
-
-    target_include_directories(AudioPlayerWidgets PRIVATE
-        "${CMAKE_CURRENT_SOURCE_DIR}/src"
-        "${CMAKE_CURRENT_SOURCE_DIR}/src/ViewModel"
-    )
-
-    target_link_libraries(AudioPlayerWidgets PRIVATE
-        Qt6::Core
-        Qt6::Gui
-        Qt6::Widgets
-        nlohmann_json::nlohmann_json
-    )
-endif()
-
-if(AUDIOPLAYER_BUILD_QML_APP)
-    qt_add_executable(AudioPlayer
-        src/main.cpp
-        src/Model/AudioFile.cpp
-        src/Model/AudioFile.h
-        src/Model/FileScanner.cpp
-        src/Model/FileScanner.h
-        src/Model/JsonSongRepository.cpp
-        src/Model/JsonSongRepository.h
-        src/Model/PlayList.cpp
-        src/Model/PlayList.h
-        src/Model/Service/LibraryUseCase.cpp
-        src/Model/Service/LibraryUseCase.h
-    )
-
     set_target_properties(AudioPlayer PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin"
     )
@@ -127,42 +81,9 @@ if(AUDIOPLAYER_BUILD_QML_APP)
     target_link_libraries(AudioPlayer PRIVATE
         Qt6::Core
         Qt6::Gui
-        Qt6::Qml
-        Qt6::Quick
+        Qt6::Widgets
         nlohmann_json::nlohmann_json
     )
-
-    set_source_files_properties(src/View/Main.qml PROPERTIES
-        QT_RESOURCE_ALIAS Main.qml
-    )
-
-    qt_add_qml_module(AudioPlayer
-        URI AudioPlayer
-        VERSION 1.0
-        # Place the QML module under Qt's standard import resource path so
-        # QQmlApplicationEngine::loadFromModule("AudioPlayer", "Main") can
-        # resolve the embedded qmldir and Main.qml reliably.
-        RESOURCE_PREFIX /qt/qml
-        SOURCES
-            src/Common/ViewCommand.cpp
-            src/Common/ViewCommand.h
-            src/ViewModel/LibraryViewModel.cpp
-            src/ViewModel/LibraryViewModel.h
-            src/ViewModel/LibraryViewModelProtocol.h
-            src/ViewModel/SongListModel.cpp
-            src/ViewModel/SongListModel.h
-        QML_FILES
-            src/View/Main.qml
-    )
-
-    if(TARGET Qt6::QXcbIntegrationPlugin)
-        qt_import_plugins(AudioPlayer INCLUDE Qt6::QXcbIntegrationPlugin)
-    endif()
-
-    if(TARGET Qt6::QWaylandIntegrationPlugin)
-        qt_import_plugins(AudioPlayer INCLUDE Qt6::QWaylandIntegrationPlugin)
-    endif()
-
 endif()
 
 include(CTest)
@@ -170,7 +91,7 @@ if(BUILD_TESTING)
     add_subdirectory(test)
 endif()
 
-if(AUDIOPLAYER_BUILD_QML_APP)
+if(AUDIOPLAYER_BUILD_APP)
     install(TARGETS AudioPlayer
         BUNDLE DESTINATION .
         RUNTIME DESTINATION bin

@@ -6,12 +6,6 @@
 #include <QString>
 #include <QStringList>
 #include <memory>
-#if __has_include(<QtQmlIntegration/qqmlintegration.h>)
-#include <QtQmlIntegration/qqmlintegration.h>
-#else
-#define QML_NAMED_ELEMENT(NAME)
-#define QML_ANONYMOUS
-#endif
 
 namespace AudioPlayer::Model::Service {
 class LibraryUseCase;
@@ -24,7 +18,6 @@ namespace ModelService = AudioPlayer::Model::Service;
 class LibraryViewModel : public LibraryViewModelProtocol
 {
     Q_OBJECT
-    QML_NAMED_ELEMENT(LibraryViewModel)
     Q_PROPERTY(AudioPlayer::ViewModel::SongListModel *songs READ songs CONSTANT)
     Q_PROPERTY(QString storagePath READ storagePath WRITE setStoragePath NOTIFY storagePathChanged)
     Q_PROPERTY(QString scanDirectoryPath READ scanDirectoryPath WRITE setScanDirectoryPath NOTIFY scanDirectoryPathChanged)
