@@ -2,6 +2,7 @@
 
 #include "Common/ViewCommand.h"
 #include "ViewModel/LibraryViewModelProtocol.h"
+#include "ViewModel/PlaybackViewModelProtocol.h"
 
 #include <QAbstractItemView>
 #include <QAbstractItemModel>
@@ -20,10 +21,14 @@ namespace {
 constexpr auto defaultStoragePath = "library.json";
 }
 
-MainWindow::MainWindow(ViewModel::LibraryViewModelProtocol &viewModel, QWidget *parent)
+MainWindow::MainWindow(ViewModel::LibraryViewModelProtocol &libraryViewModel,
+                       ViewModel::PlaybackViewModelProtocol &playbackViewModel,
+                       QWidget *parent)
     : QMainWindow(parent)
-    , m_viewModel(viewModel)
+    , m_viewModel(libraryViewModel)
+    , m_playbackViewModel(playbackViewModel)
 {
+    Q_UNUSED(m_playbackViewModel)
     buildUi();
     bindViewModel();
 }

@@ -66,13 +66,23 @@ if(AUDIOPLAYER_BUILD_APP)
         src/Model/JsonSongRepository.h
         src/Model/PlayList.cpp
         src/Model/PlayList.h
+        src/Model/Service/IPlaybackService.h
         src/Model/Service/LibraryUseCase.cpp
         src/Model/Service/LibraryUseCase.h
+        src/Model/Service/NullPlaybackService.cpp
+        src/Model/Service/NullPlaybackService.h
+        src/Model/Service/PlaybackTypes.h
+        src/Model/Service/PlaybackUseCase.cpp
+        src/Model/Service/PlaybackUseCase.h
         src/View/MainWindow.cpp
         src/View/MainWindow.h
         src/ViewModel/LibraryViewModel.cpp
         src/ViewModel/LibraryViewModel.h
         src/ViewModel/LibraryViewModelProtocol.h
+        src/ViewModel/PlaybackState.h
+        src/ViewModel/PlaybackViewModel.cpp
+        src/ViewModel/PlaybackViewModel.h
+        src/ViewModel/PlaybackViewModelProtocol.h
         src/ViewModel/SongListModel.cpp
         src/ViewModel/SongListModel.h
     )

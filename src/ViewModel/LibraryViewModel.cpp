@@ -104,6 +104,11 @@ Common::ViewCommand *LibraryViewModel::refreshCommand() noexcept
     return &m_refreshCommand;
 }
 
+QVector<Model::AudioFile> LibraryViewModel::audioFilesSnapshot() const
+{
+    return m_songs.playList().items();
+}
+
 bool LibraryViewModel::executeLoad()
 {
     ModelService::LibraryWorkflowResult result = m_libraryUseCase->load(m_storagePath);
@@ -215,6 +220,7 @@ void LibraryViewModel::replacePlayList(Model::PlayList playList)
     if (count() != previousCount) {
         emit countChanged();
     }
+    emit libraryChanged();
 }
 
 } // namespace AudioPlayer::ViewModel

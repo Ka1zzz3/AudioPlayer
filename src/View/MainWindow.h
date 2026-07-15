@@ -16,6 +16,7 @@ class ViewCommand;
 
 namespace AudioPlayer::ViewModel {
 class LibraryViewModelProtocol;
+class PlaybackViewModelProtocol;
 }
 
 namespace AudioPlayer::View {
@@ -23,7 +24,9 @@ namespace AudioPlayer::View {
 class MainWindow : public QMainWindow
 {
 public:
-    explicit MainWindow(ViewModel::LibraryViewModelProtocol &viewModel, QWidget *parent = nullptr);
+    MainWindow(ViewModel::LibraryViewModelProtocol &libraryViewModel,
+               ViewModel::PlaybackViewModelProtocol &playbackViewModel,
+               QWidget *parent = nullptr);
 
 private:
     void buildUi();
@@ -40,6 +43,7 @@ private:
     void setLabelVisibleText(QLabel &label, const QString &text);
 
     ViewModel::LibraryViewModelProtocol &m_viewModel;
+    ViewModel::PlaybackViewModelProtocol &m_playbackViewModel;
     QLineEdit *m_storagePathInput = nullptr;
     QLineEdit *m_scanDirectoryPathInput = nullptr;
     QPushButton *m_scanButton = nullptr;

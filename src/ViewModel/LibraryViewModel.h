@@ -6,6 +6,7 @@
 #include <QObject>
 #include <QString>
 #include <QStringList>
+#include <QVector>
 #include <memory>
 
 namespace AudioPlayer::Model::Service {
@@ -51,6 +52,13 @@ public:
     [[nodiscard]] Common::ViewCommand *loadCommand() noexcept override;
     [[nodiscard]] Common::ViewCommand *saveCommand() noexcept override;
     [[nodiscard]] Common::ViewCommand *refreshCommand() noexcept override;
+
+    // C++-internal coordination seam for App composition; Views still consume
+    // the library only through LibraryViewModelProtocol and QAbstractItemModel.
+    [[nodiscard]] QVector<Model::AudioFile> audioFilesSnapshot() const;
+
+signals:
+    void libraryChanged();
 
 private:
     bool executeLoad();
