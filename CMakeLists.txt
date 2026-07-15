@@ -74,6 +74,8 @@ if(AUDIOPLAYER_BUILD_APP)
         src/Model/Service/PlaybackTypes.h
         src/Model/Service/PlaybackUseCase.cpp
         src/Model/Service/PlaybackUseCase.h
+        src/Model/Service/QtMultimediaPlaybackService.cpp
+        src/Model/Service/QtMultimediaPlaybackService.h
         src/View/MainWindow.cpp
         src/View/MainWindow.h
         src/ViewModel/LibraryViewModel.cpp

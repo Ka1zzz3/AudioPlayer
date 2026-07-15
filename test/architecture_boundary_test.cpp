@@ -80,6 +80,7 @@ void ArchitectureBoundaryTest::playbackBackendDoesNotLeakIntoViewOrProtocols()
         QStringLiteral("src/View/MainWindow.h"),
         QStringLiteral("src/View/MainWindow.cpp"),
         QStringLiteral("src/ViewModel/LibraryViewModelProtocol.h"),
+        QStringLiteral("src/ViewModel/PlaybackViewModelProtocol.h"),
     };
     const QStringList forbiddenTokens{
         QStringLiteral("QMediaPlayer"),

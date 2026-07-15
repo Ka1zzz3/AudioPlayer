@@ -1,4 +1,4 @@
-find_package(Qt6 QUIET COMPONENTS Test)
+find_package(Qt6 QUIET COMPONENTS Test Multimedia)
 if(NOT Qt6Test_FOUND)
     message(WARNING "Qt6 Test component was not found; skipping tests.")
     return()
@@ -151,6 +151,32 @@ target_link_libraries(AudioPlayerPlaybackCompositionTest PRIVATE
 )
 
 add_test(NAME AudioPlayerPlaybackCompositionTest COMMAND AudioPlayerPlaybackCompositionTest)
+
+if(Qt6Multimedia_FOUND)
+    qt_add_executable(AudioPlayerQtMultimediaPlaybackServiceTest
+        qt_multimedia_playback_service_test.cpp
+        ../src/Model/Service/QtMultimediaPlaybackService.cpp
+        ../src/Model/Service/QtMultimediaPlaybackService.h
+        ../src/Model/Service/IPlaybackService.h
+        ../src/Model/Service/PlaybackTypes.h
+    )
+
+    target_include_directories(AudioPlayerQtMultimediaPlaybackServiceTest PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/../src"
+    )
+
+    target_link_libraries(AudioPlayerQtMultimediaPlaybackServiceTest PRIVATE
+        Qt6::Core
+        Qt6::Multimedia
+        Qt6::Test
+    )
+
+    add_test(NAME AudioPlayerQtMultimediaPlaybackServiceTest COMMAND AudioPlayerQtMultimediaPlaybackServiceTest)
+    set_tests_properties(AudioPlayerQtMultimediaPlaybackServiceTest PROPERTIES
+        DISABLED TRUE
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+    )
+endif()
 
 qt_add_executable(AudioPlayerViewModelBehaviorTest
     viewmodel_behavior_test.cpp
