@@ -3,6 +3,8 @@
 #include "Model/JsonSongRepository.h"
 #include "Model/PlayList.h"
 
+#include <nlohmann/json.hpp>
+
 #include <QtTest/QtTest>
 
 #include <optional>
@@ -27,6 +29,7 @@ private slots:
     void audioFileUsesTrimmedTitleBeforePathForDisplayTitle();
     void playListTracksCurrentFileAndTotalDuration();
     void jsonSongRepositorySavesAndLoadsPlaylist();
+    void jsonSongRepositorySaveEmitsCurrentLibraryJsonSchema();
     void jsonSongRepositoryEmptyStoragePathFailsWithError();
     void jsonSongRepositoryCorruptJsonLoadFails();
     void jsonSongRepositoryJsonRootNotObjectLoadFails();
@@ -105,6 +108,55 @@ void ModelBehaviorTest::jsonSongRepositorySavesAndLoadsPlaylist()
     QCOMPARE(loaded->size(), 2);
     QCOMPARE(*loaded->at(0), *playList.at(0));
     QCOMPARE(*loaded->at(1), *playList.at(1));
+}
+
+void ModelBehaviorTest::jsonSongRepositorySaveEmitsCurrentLibraryJsonSchema()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+    const QString storagePath = temporaryDirectory.filePath(QStringLiteral("library.json"));
+    JsonSongRepository repository(storagePath);
+    PlayList playList;
+    playList.add(AudioFile(QStringLiteral("/music/one.mp3"),
+                           QStringLiteral("One"),
+                           QStringLiteral("Artist"),
+                           QStringLiteral("Album"),
+                           123));
+
+    QString errorMessage;
+    QVERIFY2(repository.save(playList, &errorMessage), qPrintable(errorMessage));
+
+    QFile storageFile(storagePath);
+    QVERIFY(storageFile.open(QIODevice::ReadOnly));
+    const QByteArray savedJson = storageFile.readAll();
+    const nlohmann::json document = nlohmann::json::parse(savedJson.constData(),
+                                                          savedJson.constData() + savedJson.size());
+
+    QVERIFY(document.is_object());
+    QCOMPARE(document.size(), 2U);
+    QVERIFY(document.contains("schemaVersion"));
+    QCOMPARE(document.at("schemaVersion").get<int>(), 1);
+    QVERIFY(document.contains("songs"));
+    QVERIFY(document.at("songs").is_array());
+    QCOMPARE(document.at("songs").size(), 1U);
+
+    const nlohmann::json &firstSong = document.at("songs").at(0);
+    QVERIFY(firstSong.is_object());
+    QCOMPARE(firstSong.size(), 5U);
+    QVERIFY(firstSong.contains("filePath"));
+    QVERIFY(firstSong.contains("title"));
+    QVERIFY(firstSong.contains("artist"));
+    QVERIFY(firstSong.contains("album"));
+    QVERIFY(firstSong.contains("durationSeconds"));
+    QCOMPARE(QString::fromStdString(firstSong.at("filePath").get<std::string>()),
+             QStringLiteral("/music/one.mp3"));
+    QCOMPARE(QString::fromStdString(firstSong.at("title").get<std::string>()),
+             QStringLiteral("One"));
+    QCOMPARE(QString::fromStdString(firstSong.at("artist").get<std::string>()),
+             QStringLiteral("Artist"));
+    QCOMPARE(QString::fromStdString(firstSong.at("album").get<std::string>()),
+             QStringLiteral("Album"));
+    QCOMPARE(firstSong.at("durationSeconds").get<int>(), 123);
 }
 
 void ModelBehaviorTest::jsonSongRepositoryEmptyStoragePathFailsWithError()
