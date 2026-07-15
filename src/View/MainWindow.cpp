@@ -3,23 +3,38 @@
 #include "Common/ViewCommand.h"
 #include "ViewModel/LibraryViewModelProtocol.h"
 #include "ViewModel/PlaybackViewModelProtocol.h"
+#include "ViewModel/PlaybackState.h"
 
 #include <QAbstractItemView>
 #include <QAbstractItemModel>
 #include <QBoxLayout>
 #include <QFormLayout>
+#include <QItemSelectionModel>
 #include <QLabel>
 #include <QLineEdit>
 #include <QListView>
 #include <QPushButton>
+#include <QSignalBlocker>
+#include <QSlider>
 #include <QStringList>
 #include <QWidget>
+
+#include <limits>
 
 namespace AudioPlayer::View {
 
 namespace {
 constexpr auto defaultStoragePath = "library.json";
+
+QString formatTime(qint64 milliseconds)
+{
+    const qint64 totalSeconds = std::max(milliseconds, qint64{0}) / 1000;
+    const qint64 minutes = totalSeconds / 60;
+    const qint64 seconds = totalSeconds % 60;
+    return QStringLiteral("%1:%2").arg(minutes).arg(seconds, 2, 10, QLatin1Char('0'));
 }
+
+} // namespace
 
 MainWindow::MainWindow(ViewModel::LibraryViewModelProtocol &libraryViewModel,
                        ViewModel::PlaybackViewModelProtocol &playbackViewModel,
@@ -28,7 +43,6 @@ MainWindow::MainWindow(ViewModel::LibraryViewModelProtocol &libraryViewModel,
     , m_viewModel(libraryViewModel)
     , m_playbackViewModel(playbackViewModel)
 {
-    Q_UNUSED(m_playbackViewModel)
     buildUi();
     bindViewModel();
 }
@@ -36,7 +50,7 @@ MainWindow::MainWindow(ViewModel::LibraryViewModelProtocol &libraryViewModel,
 void MainWindow::buildUi()
 {
     setWindowTitle(tr("AudioPlayer"));
-    resize(900, 600);
+    resize(900, 700);
 
     auto *centralWidget = new QWidget(this);
     auto *mainLayout = new QVBoxLayout(centralWidget);
@@ -87,10 +101,65 @@ void MainWindow::buildUi()
     m_songListView->setModel(m_viewModel.songs());
     mainLayout->addWidget(m_songListView, 1);
 
+    auto *playbackTitleLabel = new QLabel(tr("Playback"), centralWidget);
+    QFont playbackTitleFont = playbackTitleLabel->font();
+    playbackTitleFont.setBold(true);
+    playbackTitleLabel->setFont(playbackTitleFont);
+    mainLayout->addWidget(playbackTitleLabel);
+
+    auto *playbackButtonsLayout = new QHBoxLayout();
+    m_previousButton = new QPushButton(tr("Previous"), centralWidget);
+    m_playButton = new QPushButton(tr("Play"), centralWidget);
+    m_pauseButton = new QPushButton(tr("Pause"), centralWidget);
+    m_stopButton = new QPushButton(tr("Stop"), centralWidget);
+    m_nextButton = new QPushButton(tr("Next"), centralWidget);
+    m_muteButton = new QPushButton(tr("Mute"), centralWidget);
+    playbackButtonsLayout->addWidget(m_previousButton);
+    playbackButtonsLayout->addWidget(m_playButton);
+    playbackButtonsLayout->addWidget(m_pauseButton);
+    playbackButtonsLayout->addWidget(m_stopButton);
+    playbackButtonsLayout->addWidget(m_nextButton);
+    playbackButtonsLayout->addWidget(m_muteButton);
+    mainLayout->addLayout(playbackButtonsLayout);
+
+    auto *progressLayout = new QHBoxLayout();
+    m_progressSlider = new QSlider(Qt::Horizontal, centralWidget);
+    m_progressSlider->setRange(0, 0);
+    m_progressSlider->setEnabled(false);
+    m_playbackPositionLabel = new QLabel(centralWidget);
+    progressLayout->addWidget(m_progressSlider, 1);
+    progressLayout->addWidget(m_playbackPositionLabel);
+    mainLayout->addLayout(progressLayout);
+
+    auto *volumeLayout = new QHBoxLayout();
+    auto *volumeLabel = new QLabel(tr("Volume"), centralWidget);
+    m_volumeSlider = new QSlider(Qt::Horizontal, centralWidget);
+    m_volumeSlider->setRange(0, 100);
+    m_volumeSlider->setValue(100);
+    volumeLayout->addWidget(volumeLabel);
+    volumeLayout->addWidget(m_volumeSlider, 1);
+    mainLayout->addLayout(volumeLayout);
+
+    m_playbackStateLabel = new QLabel(centralWidget);
+    m_currentPlaybackLabel = new QLabel(centralWidget);
+    m_playbackStatusLabel = new QLabel(centralWidget);
+    m_playbackErrorLabel = new QLabel(centralWidget);
+    m_playbackErrorLabel->setStyleSheet(QStringLiteral("color: #a00000;"));
+    mainLayout->addWidget(m_playbackStateLabel);
+    mainLayout->addWidget(m_currentPlaybackLabel);
+    mainLayout->addWidget(m_playbackStatusLabel);
+    mainLayout->addWidget(m_playbackErrorLabel);
+
     setCentralWidget(centralWidget);
 }
 
 void MainWindow::bindViewModel()
+{
+    bindLibraryViewModel();
+    bindPlaybackViewModel();
+}
+
+void MainWindow::bindLibraryViewModel()
 {
     m_viewModel.setStoragePath(m_storagePathInput->text());
     m_viewModel.setScanDirectoryPath(m_scanDirectoryPathInput->text());
@@ -121,6 +190,76 @@ void MainWindow::bindViewModel()
     updateStatusMessage();
     updateLastError();
     updateWarnings();
+}
+
+void MainWindow::bindPlaybackViewModel()
+{
+    bindButton(*m_playButton, m_playbackViewModel.playCommand());
+    bindButton(*m_pauseButton, m_playbackViewModel.pauseCommand());
+    bindButton(*m_stopButton, m_playbackViewModel.stopCommand());
+    bindButton(*m_previousButton, m_playbackViewModel.previousCommand());
+    bindButton(*m_nextButton, m_playbackViewModel.nextCommand());
+    bindButton(*m_muteButton, m_playbackViewModel.toggleMuteCommand());
+
+    if (m_songListView->selectionModel() != nullptr) {
+        connect(m_songListView->selectionModel(), &QItemSelectionModel::currentChanged, this, [this](const QModelIndex &current) {
+            if (current.isValid()) {
+                m_playbackViewModel.setCurrentPlaybackIndex(current.row());
+            }
+        });
+    }
+
+    connect(&m_playbackViewModel, &ViewModel::PlaybackViewModelProtocol::playbackStateChanged, this, &MainWindow::updatePlaybackState);
+    connect(&m_playbackViewModel,
+            &ViewModel::PlaybackViewModelProtocol::currentPlaybackIndexChanged,
+            this,
+            &MainWindow::syncPlaybackSelection);
+    connect(&m_playbackViewModel,
+            &ViewModel::PlaybackViewModelProtocol::currentPlaybackTitleChanged,
+            this,
+            &MainWindow::updateCurrentPlaybackTrack);
+    connect(&m_playbackViewModel, &ViewModel::PlaybackViewModelProtocol::positionMsChanged, this, &MainWindow::updatePlaybackPosition);
+    connect(&m_playbackViewModel, &ViewModel::PlaybackViewModelProtocol::durationMsChanged, this, &MainWindow::updatePlaybackDuration);
+    connect(&m_playbackViewModel, &ViewModel::PlaybackViewModelProtocol::seekableChanged, this, &MainWindow::updatePlaybackSeekable);
+    connect(&m_playbackViewModel, &ViewModel::PlaybackViewModelProtocol::volumePercentChanged, this, &MainWindow::updatePlaybackVolume);
+    connect(&m_playbackViewModel, &ViewModel::PlaybackViewModelProtocol::mutedChanged, this, &MainWindow::updatePlaybackMuted);
+    connect(&m_playbackViewModel,
+            &ViewModel::PlaybackViewModelProtocol::lastPlaybackErrorChanged,
+            this,
+            &MainWindow::updatePlaybackError);
+    connect(&m_playbackViewModel,
+            &ViewModel::PlaybackViewModelProtocol::statusMessageChanged,
+            this,
+            &MainWindow::updatePlaybackStatusMessage);
+
+    connect(m_progressSlider, &QSlider::sliderPressed, this, [this]() {
+        m_userSeeking = true;
+    });
+    connect(m_progressSlider, &QSlider::sliderReleased, this, [this]() {
+        m_userSeeking = false;
+        m_playbackViewModel.seekTo(m_progressSlider->value());
+        updatePlaybackPosition();
+    });
+    connect(m_progressSlider, &QSlider::sliderMoved, this, [this](int value) {
+        m_playbackPositionLabel->setText(tr("%1 / %2").arg(formatTime(value), formatTime(m_playbackViewModel.durationMs())));
+    });
+
+    connect(m_volumeSlider, &QSlider::valueChanged, this, [this](int value) {
+        if (!m_syncingVolume) {
+            m_playbackViewModel.setVolumePercent(value);
+        }
+    });
+
+    updatePlaybackState();
+    updateCurrentPlaybackTrack();
+    updatePlaybackDuration();
+    updatePlaybackPosition();
+    updatePlaybackSeekable();
+    updatePlaybackVolume();
+    updatePlaybackMuted();
+    updatePlaybackError();
+    updatePlaybackStatusMessage();
+    syncPlaybackSelection();
 }
 
 void MainWindow::bindLineEdit(QLineEdit &lineEdit,
@@ -181,10 +320,109 @@ void MainWindow::updateWarnings()
     setLabelVisibleText(*m_warningsLabel, lines.join(QLatin1Char('\n')));
 }
 
+void MainWindow::updatePlaybackState()
+{
+    m_playbackStateLabel->setText(tr("Playback state: %1").arg(playbackStateText()));
+}
+
+void MainWindow::updateCurrentPlaybackTrack()
+{
+    const QString title = m_playbackViewModel.currentPlaybackTitle();
+    setLabelVisibleText(*m_currentPlaybackLabel, title.isEmpty() ? QString() : tr("Now playing: %1").arg(title));
+}
+
+void MainWindow::updatePlaybackPosition()
+{
+    const int value = sliderValueFromMs(m_playbackViewModel.positionMs());
+    if (!m_userSeeking && m_progressSlider->value() != value) {
+        m_progressSlider->setValue(value);
+    }
+
+    const int displayValue = m_userSeeking ? m_progressSlider->value() : value;
+    m_playbackPositionLabel->setText(tr("%1 / %2").arg(formatTime(displayValue), formatTime(m_playbackViewModel.durationMs())));
+}
+
+void MainWindow::updatePlaybackDuration()
+{
+    const int duration = sliderValueFromMs(m_playbackViewModel.durationMs());
+    m_progressSlider->setRange(0, duration);
+    updatePlaybackPosition();
+}
+
+void MainWindow::updatePlaybackSeekable()
+{
+    m_progressSlider->setEnabled(m_playbackViewModel.seekable() && m_playbackViewModel.durationMs() > 0);
+}
+
+void MainWindow::updatePlaybackVolume()
+{
+    const QSignalBlocker blocker(m_volumeSlider);
+    Q_UNUSED(blocker)
+    m_syncingVolume = true;
+    m_volumeSlider->setValue(m_playbackViewModel.volumePercent());
+    m_syncingVolume = false;
+}
+
+void MainWindow::updatePlaybackMuted()
+{
+    m_muteButton->setText(m_playbackViewModel.muted() ? tr("Unmute") : tr("Mute"));
+}
+
+void MainWindow::updatePlaybackError()
+{
+    setLabelVisibleText(*m_playbackErrorLabel, m_playbackViewModel.lastPlaybackError());
+}
+
+void MainWindow::updatePlaybackStatusMessage()
+{
+    setLabelVisibleText(*m_playbackStatusLabel, m_playbackViewModel.statusMessage());
+}
+
+void MainWindow::syncPlaybackSelection()
+{
+    const int row = m_playbackViewModel.currentPlaybackIndex();
+    if (m_songListView->model() == nullptr || row < 0 || row >= m_songListView->model()->rowCount()) {
+        return;
+    }
+
+    const QModelIndex index = m_songListView->model()->index(row, 0);
+    if (!index.isValid() || m_songListView->currentIndex() == index) {
+        return;
+    }
+
+    m_songListView->setCurrentIndex(index);
+}
+
 void MainWindow::setLabelVisibleText(QLabel &label, const QString &text)
 {
     label.setText(text);
     label.setVisible(!text.isEmpty());
+}
+
+QString MainWindow::playbackStateText() const
+{
+    switch (m_playbackViewModel.playbackState()) {
+    case ViewModel::PlaybackState::Stopped:
+        return tr("Stopped");
+    case ViewModel::PlaybackState::Loading:
+        return tr("Loading");
+    case ViewModel::PlaybackState::Playing:
+        return tr("Playing");
+    case ViewModel::PlaybackState::Paused:
+        return tr("Paused");
+    case ViewModel::PlaybackState::Buffering:
+        return tr("Buffering");
+    case ViewModel::PlaybackState::Error:
+        return tr("Error");
+    }
+
+    return tr("Stopped");
+}
+
+int MainWindow::sliderValueFromMs(qint64 valueMs)
+{
+    const qint64 clamped = std::clamp(valueMs, qint64{0}, static_cast<qint64>(std::numeric_limits<int>::max()));
+    return static_cast<int>(clamped);
 }
 
 } // namespace AudioPlayer::View
