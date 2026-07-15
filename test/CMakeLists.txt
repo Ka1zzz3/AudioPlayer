@@ -64,6 +64,7 @@ qt_add_executable(AudioPlayerViewModelBehaviorTest
     ../src/Model/Service/LibraryUseCase.cpp
     ../src/Common/ViewCommand.cpp
     ../src/ViewModel/LibraryViewModel.cpp
+    ../src/ViewModel/LibraryViewModelProtocol.h
     ../src/ViewModel/SongListModel.cpp
 )
 

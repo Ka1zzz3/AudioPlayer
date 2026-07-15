@@ -16,7 +16,7 @@ LibraryViewModel::LibraryViewModel(QObject *parent)
 
 LibraryViewModel::LibraryViewModel(std::shared_ptr<const ModelService::LibraryUseCase> libraryUseCase,
                                    QObject *parent)
-    : QObject(parent)
+    : LibraryViewModelProtocol(parent)
     , m_songs(this)
     , m_libraryUseCase(std::move(libraryUseCase))
     , m_scanCommand(QStringLiteral("scan"), [this]() { return scanDirectory(); }, this)

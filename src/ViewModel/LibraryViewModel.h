@@ -1,7 +1,6 @@
 #pragma once
 
-#include "Common/ViewCommand.h"
-#include "ViewModel/SongListModel.h"
+#include "ViewModel/LibraryViewModelProtocol.h"
 
 #include <QObject>
 #include <QString>
@@ -20,10 +19,9 @@ class LibraryUseCase;
 
 namespace AudioPlayer::ViewModel {
 
-namespace Common = AudioPlayer::Common;
 namespace ModelService = AudioPlayer::Model::Service;
 
-class LibraryViewModel : public QObject
+class LibraryViewModel : public LibraryViewModelProtocol
 {
     Q_OBJECT
     QML_NAMED_ELEMENT(LibraryViewModel)
@@ -47,36 +45,25 @@ public:
     explicit LibraryViewModel(std::shared_ptr<const ModelService::LibraryUseCase> libraryUseCase,
                               QObject *parent = nullptr);
 
-    [[nodiscard]] SongListModel *songs() noexcept;
-    [[nodiscard]] const QString &storagePath() const noexcept;
-    void setStoragePath(QString storagePath);
-    [[nodiscard]] const QString &scanDirectoryPath() const noexcept;
-    void setScanDirectoryPath(QString scanDirectoryPath);
-    [[nodiscard]] int count() const noexcept;
-    [[nodiscard]] const QString &lastError() const noexcept;
-    [[nodiscard]] const QStringList &warnings() const noexcept;
-    [[nodiscard]] const QString &statusMessage() const noexcept;
-    [[nodiscard]] Common::ViewCommand *scanCommand() noexcept;
-    [[nodiscard]] Common::ViewCommand *loadCommand() noexcept;
-    [[nodiscard]] Common::ViewCommand *saveCommand() noexcept;
-    [[nodiscard]] Common::ViewCommand *refreshCommand() noexcept;
+    [[nodiscard]] SongListModel *songs() noexcept override;
+    [[nodiscard]] const QString &storagePath() const noexcept override;
+    void setStoragePath(QString storagePath) override;
+    [[nodiscard]] const QString &scanDirectoryPath() const noexcept override;
+    void setScanDirectoryPath(QString scanDirectoryPath) override;
+    [[nodiscard]] int count() const noexcept override;
+    [[nodiscard]] const QString &lastError() const noexcept override;
+    [[nodiscard]] const QStringList &warnings() const noexcept override;
+    [[nodiscard]] const QString &statusMessage() const noexcept override;
+    [[nodiscard]] Common::ViewCommand *scanCommand() noexcept override;
+    [[nodiscard]] Common::ViewCommand *loadCommand() noexcept override;
+    [[nodiscard]] Common::ViewCommand *saveCommand() noexcept override;
+    [[nodiscard]] Common::ViewCommand *refreshCommand() noexcept override;
 
     Q_INVOKABLE bool load();
     Q_INVOKABLE bool refresh();
     Q_INVOKABLE bool scanDirectory();
     Q_INVOKABLE bool scanDirectory(const QString &directoryPath);
     Q_INVOKABLE bool save();
-
-signals:
-    void loaded();
-    void refreshed();
-    void loadFailed(const QString &errorMessage);
-    void countChanged();
-    void storagePathChanged();
-    void scanDirectoryPathChanged();
-    void lastErrorChanged();
-    void warningsChanged();
-    void statusMessageChanged();
 
 private:
     void setLastError(QString errorMessage);

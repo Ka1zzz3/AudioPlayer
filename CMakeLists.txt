@@ -11,6 +11,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(AUDIOPLAYER_BUILD_QML_APP "Build the Qt Quick/QML application target" ON)
+option(AUDIOPLAYER_BUILD_WIDGETS_APP "Build the Qt Widgets application target" ON)
 
 find_package(Qt6 6.4 QUIET COMPONENTS Core Gui)
 if(NOT Qt6_FOUND)
@@ -19,6 +20,17 @@ if(NOT Qt6_FOUND)
         "Install the Qt6 development packages for your platform or configure CMAKE_PREFIX_PATH "
         "to the Qt6 installation prefix."
     )
+endif()
+
+if(AUDIOPLAYER_BUILD_WIDGETS_APP)
+    find_package(Qt6 6.4 QUIET COMPONENTS Widgets)
+    if(NOT Qt6Widgets_FOUND)
+        message(WARNING
+            "AUDIOPLAYER_BUILD_WIDGETS_APP=ON requires Qt6 Widgets, but Qt6Widgets was not found. "
+            "Skipping the AudioPlayerWidgets target. Install the Qt Widgets development module or "
+            "configure with -DAUDIOPLAYER_BUILD_WIDGETS_APP=OFF."
+        )
+    endif()
 endif()
 
 if(AUDIOPLAYER_BUILD_QML_APP)
@@ -44,6 +56,49 @@ if(NOT nlohmann_json_FOUND)
 endif()
 
 qt_standard_project_setup(REQUIRES 6.4)
+
+if(AUDIOPLAYER_BUILD_WIDGETS_APP AND Qt6Widgets_FOUND)
+    qt_add_executable(AudioPlayerWidgets
+        src/App/AppCompositionRoot.cpp
+        src/App/AppCompositionRoot.h
+        src/App/widgets_main.cpp
+        src/Common/ViewCommand.cpp
+        src/Common/ViewCommand.h
+        src/Model/AudioFile.cpp
+        src/Model/AudioFile.h
+        src/Model/FileScanner.cpp
+        src/Model/FileScanner.h
+        src/Model/JsonSongRepository.cpp
+        src/Model/JsonSongRepository.h
+        src/Model/PlayList.cpp
+        src/Model/PlayList.h
+        src/Model/Service/LibraryUseCase.cpp
+        src/Model/Service/LibraryUseCase.h
+        src/View/MainWindow.cpp
+        src/View/MainWindow.h
+        src/ViewModel/LibraryViewModel.cpp
+        src/ViewModel/LibraryViewModel.h
+        src/ViewModel/LibraryViewModelProtocol.h
+        src/ViewModel/SongListModel.cpp
+        src/ViewModel/SongListModel.h
+    )
+
+    set_target_properties(AudioPlayerWidgets PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin"
+    )
+
+    target_include_directories(AudioPlayerWidgets PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/src"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/ViewModel"
+    )
+
+    target_link_libraries(AudioPlayerWidgets PRIVATE
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Widgets
+        nlohmann_json::nlohmann_json
+    )
+endif()
 
 if(AUDIOPLAYER_BUILD_QML_APP)
     qt_add_executable(AudioPlayer
@@ -93,6 +148,7 @@ if(AUDIOPLAYER_BUILD_QML_APP)
             src/Common/ViewCommand.h
             src/ViewModel/LibraryViewModel.cpp
             src/ViewModel/LibraryViewModel.h
+            src/ViewModel/LibraryViewModelProtocol.h
             src/ViewModel/SongListModel.cpp
             src/ViewModel/SongListModel.h
         QML_FILES
