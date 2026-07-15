@@ -5,6 +5,7 @@
 #include <QObject>
 #include <QString>
 #include <QStringList>
+#include <memory>
 #if __has_include(<QtQmlIntegration/qqmlintegration.h>)
 #include <QtQmlIntegration/qqmlintegration.h>
 #else
@@ -12,7 +13,13 @@
 #define QML_ANONYMOUS
 #endif
 
+namespace AudioPlayer::Model::Service {
+class LibraryUseCase;
+}
+
 namespace AudioPlayer::ViewModel {
+
+namespace ModelService = AudioPlayer::Model::Service;
 
 class LibraryViewModel : public QObject
 {
@@ -28,6 +35,8 @@ class LibraryViewModel : public QObject
 
 public:
     explicit LibraryViewModel(QObject *parent = nullptr);
+    explicit LibraryViewModel(std::shared_ptr<const ModelService::LibraryUseCase> libraryUseCase,
+                              QObject *parent = nullptr);
 
     [[nodiscard]] SongListModel *songs() noexcept;
     [[nodiscard]] const QString &storagePath() const noexcept;
@@ -63,6 +72,7 @@ private:
     void replacePlayList(Model::PlayList playList);
 
     SongListModel m_songs;
+    std::shared_ptr<const ModelService::LibraryUseCase> m_libraryUseCase;
     QString m_storagePath;
     QString m_scanDirectoryPath;
     QString m_lastError;

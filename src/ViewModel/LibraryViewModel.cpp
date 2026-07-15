@@ -1,9 +1,8 @@
 #include "ViewModel/LibraryViewModel.h"
 
-#include "Model/FileScanner.h"
-#include "Model/JsonSongRepository.h"
+#include "Model/Service/LibraryUseCase.h"
 
-#include <optional>
+#include <memory>
 #include <utility>
 
 #include <QStringList>
@@ -11,9 +10,19 @@
 namespace AudioPlayer::ViewModel {
 
 LibraryViewModel::LibraryViewModel(QObject *parent)
+    : LibraryViewModel(std::make_shared<ModelService::LibraryUseCase>(), parent)
+{
+}
+
+LibraryViewModel::LibraryViewModel(std::shared_ptr<const ModelService::LibraryUseCase> libraryUseCase,
+                                   QObject *parent)
     : QObject(parent)
     , m_songs(this)
+    , m_libraryUseCase(std::move(libraryUseCase))
 {
+    if (!m_libraryUseCase) {
+        m_libraryUseCase = std::make_shared<ModelService::LibraryUseCase>();
+    }
 }
 
 SongListModel *LibraryViewModel::songs() noexcept
@@ -73,19 +82,14 @@ const QString &LibraryViewModel::statusMessage() const noexcept
 
 bool LibraryViewModel::load()
 {
-    QString errorMessage;
-    // First-iteration UI wiring uses the concrete JSON repository synchronously.
-    // Introduce an async service/repository boundary before real metadata parsing,
-    // recursive scanning, or large-library work.
-    Model::JsonSongRepository repository(m_storagePath);
-    std::optional<Model::PlayList> loadedPlayList = repository.load(&errorMessage);
-    if (!loadedPlayList.has_value()) {
-        setLastError(std::move(errorMessage));
+    ModelService::LibraryWorkflowResult result = m_libraryUseCase->load(m_storagePath);
+    if (!result.ok()) {
+        setLastError(std::move(result.error));
         emit loadFailed(m_lastError);
         return false;
     }
 
-    replacePlayList(std::move(*loadedPlayList));
+    replacePlayList(std::move(result.playList));
     setLastError({});
     setWarnings({});
     setStatusMessage(QStringLiteral("Loaded %1 song(s).").arg(count()));
@@ -95,24 +99,15 @@ bool LibraryViewModel::load()
 
 bool LibraryViewModel::refresh()
 {
-    Model::PlayList refreshedPlayList;
-    QStringList skippedFilePaths;
-    for (const Model::AudioFile &audioFile : m_songs.playList().items()) {
-        std::optional<Model::AudioFile> scannedAudioFile = Model::FileScanner::scanFile(audioFile.filePath());
-        if (!scannedAudioFile.has_value()) {
-            skippedFilePaths.append(audioFile.filePath());
-            continue;
-        }
-
-        refreshedPlayList.add(std::move(*scannedAudioFile));
-    }
-
-    replacePlayList(std::move(refreshedPlayList));
+    ModelService::LibraryWorkflowResult result = m_libraryUseCase->refresh(m_songs.playList());
+    const int skippedCount = result.warnings.size();
+    const bool hasWarnings = !result.warnings.isEmpty();
+    replacePlayList(std::move(result.playList));
     setLastError({});
-    setWarnings(skippedFilePaths);
-    setStatusMessage(skippedFilePaths.isEmpty()
+    setWarnings(std::move(result.warnings));
+    setStatusMessage(!hasWarnings
                          ? QStringLiteral("Refreshed %1 song(s).").arg(count())
-                         : QStringLiteral("Refresh skipped %1 missing or unsupported file(s).").arg(skippedFilePaths.size()));
+                         : QStringLiteral("Refresh skipped %1 missing or unsupported file(s).").arg(skippedCount));
     emit refreshed();
     return true;
 }
@@ -124,10 +119,7 @@ bool LibraryViewModel::scanDirectory()
 
 bool LibraryViewModel::scanDirectory(const QString &directoryPath)
 {
-    // Synchronous directory scanning is intentional for the first iteration only.
-    // Move this behind an async scanning service before enabling recursive scans,
-    // real metadata extraction, or large library imports from the UI.
-    Model::ScanResult result = Model::FileScanner::scanDirectory(directoryPath);
+    ModelService::LibraryWorkflowResult result = m_libraryUseCase->scanDirectory(directoryPath);
     if (!result.ok()) {
         setLastError(std::move(result.error));
         setWarnings({});
@@ -150,12 +142,9 @@ bool LibraryViewModel::scanDirectory(const QString &directoryPath)
 
 bool LibraryViewModel::save()
 {
-    QString errorMessage;
-    // First-iteration synchronous concrete repository access; replace with a
-    // service boundary before save/load work can block on larger libraries.
-    Model::JsonSongRepository repository(m_storagePath);
-    if (!repository.save(m_songs.playList(), &errorMessage)) {
-        setLastError(std::move(errorMessage));
+    ModelService::LibraryWorkflowResult result = m_libraryUseCase->save(m_storagePath, m_songs.playList());
+    if (!result.ok()) {
+        setLastError(std::move(result.error));
         setStatusMessage(QStringLiteral("Save failed."));
         return false;
     }
