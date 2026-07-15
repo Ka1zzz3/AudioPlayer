@@ -1,8 +1,8 @@
 #pragma once
 
 #include "Common/ViewCommand.h"
-#include "ViewModel/SongListModel.h"
 
+#include <QAbstractItemModel>
 #include <QObject>
 #include <QString>
 #include <QStringList>
@@ -19,7 +19,7 @@ public:
     {
     }
 
-    [[nodiscard]] virtual SongListModel *songs() noexcept = 0;
+    [[nodiscard]] virtual QAbstractItemModel *songs() noexcept = 0;
     [[nodiscard]] virtual const QString &storagePath() const noexcept = 0;
     virtual void setStoragePath(QString storagePath) = 0;
     [[nodiscard]] virtual const QString &scanDirectoryPath() const noexcept = 0;

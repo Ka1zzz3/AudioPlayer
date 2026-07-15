@@ -13,19 +13,12 @@
         "gui",
         "testlib",
         "wayland",
+        "widgets",
         "xcb",
         "xcb-sm",
         "xcb-xlib",
         "xrender"
       ]
-    },
-    {
-      "name": "qtdeclarative",
-      "default-features": false
-    },
-    {
-      "name": "qtwayland",
-      "default-features": false
     }
   ],
   "overrides": [
@@ -33,26 +26,6 @@
       "name": "qtbase",
       "version": "6.10.3",
       "port-version": 1
-    },
-    {
-      "name": "qtdeclarative",
-      "version": "6.10.3"
-    },
-    {
-      "name": "qtwayland",
-      "version": "6.10.3"
-    },
-    {
-      "name": "qtlanguageserver",
-      "version": "6.10.3"
-    },
-    {
-      "name": "qtshadertools",
-      "version": "6.10.3"
-    },
-    {
-      "name": "qtsvg",
-      "version": "6.10.3"
     }
   ]
 }

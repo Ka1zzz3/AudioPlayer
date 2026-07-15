@@ -82,14 +82,14 @@ void ViewModelBehaviorTest::successfulLoadClearsErrorsAndUpdatesCountAndRoles()
 
     LibraryViewModel viewModel;
     viewModel.setStoragePath(temporaryDirectory.filePath(QStringLiteral("missing.json")));
-    QVERIFY(!viewModel.load());
+    QVERIFY(!viewModel.loadCommand()->execute());
     QVERIFY(!viewModel.lastError().isEmpty());
 
     QSignalSpy loadedSpy(&viewModel, &LibraryViewModel::loaded);
     QSignalSpy countSpy(&viewModel, &LibraryViewModel::countChanged);
     viewModel.setStoragePath(storagePath);
 
-    QVERIFY(viewModel.load());
+    QVERIFY(viewModel.loadCommand()->execute());
     QCOMPARE(viewModel.lastError(), QString());
     QCOMPARE(viewModel.count(), 1);
     QCOMPARE(viewModel.songs()->rowCount(), 1);
@@ -114,7 +114,7 @@ void ViewModelBehaviorTest::failedLoadSetsLastError()
 
     QSignalSpy failedSpy(&viewModel, &LibraryViewModel::loadFailed);
 
-    QVERIFY(!viewModel.load());
+    QVERIFY(!viewModel.loadCommand()->execute());
     QVERIFY(!viewModel.lastError().isEmpty());
     QVERIFY(viewModel.lastError().contains(QStringLiteral("reading"), Qt::CaseInsensitive));
     QCOMPARE(failedSpy.count(), 1);
@@ -134,12 +134,12 @@ void ViewModelBehaviorTest::refreshSkipsMissingFileAndReportsWarning()
 
     LibraryViewModel viewModel;
     viewModel.setStoragePath(storagePath);
-    QVERIFY(viewModel.load());
+    QVERIFY(viewModel.loadCommand()->execute());
 
     QSignalSpy refreshedSpy(&viewModel, &LibraryViewModel::refreshed);
     QSignalSpy countSpy(&viewModel, &LibraryViewModel::countChanged);
 
-    QVERIFY(viewModel.refresh());
+    QVERIFY(viewModel.refreshCommand()->execute());
     QCOMPARE(viewModel.count(), 1);
     QCOMPARE(viewModel.songs()->rowCount(), 1);
     QCOMPARE(viewModel.lastError(), QString());
@@ -163,12 +163,12 @@ void ViewModelBehaviorTest::successfulRefreshClearsStaleErrors()
 
     LibraryViewModel viewModel;
     viewModel.setStoragePath(storagePath);
-    QVERIFY(viewModel.load());
+    QVERIFY(viewModel.loadCommand()->execute());
     viewModel.setStoragePath(temporaryDirectory.filePath(QStringLiteral("missing.json")));
-    QVERIFY(!viewModel.load());
+    QVERIFY(!viewModel.loadCommand()->execute());
     QVERIFY(!viewModel.lastError().isEmpty());
 
-    QVERIFY(viewModel.refresh());
+    QVERIFY(viewModel.refreshCommand()->execute());
     QCOMPARE(viewModel.lastError(), QString());
     QVERIFY(viewModel.warnings().isEmpty());
     QCOMPARE(viewModel.count(), 1);
@@ -209,7 +209,7 @@ void ViewModelBehaviorTest::scanDirectoryUpdatesCountRolesWarningsAndStatus()
     QSignalSpy warningsSpy(&viewModel, &LibraryViewModel::warningsChanged);
     viewModel.setScanDirectoryPath(scanPath);
 
-    QVERIFY(viewModel.scanDirectory());
+    QVERIFY(viewModel.scanCommand()->execute());
 
     QCOMPARE(viewModel.lastError(), QString());
     QCOMPARE(viewModel.count(), 1);
@@ -240,10 +240,11 @@ void ViewModelBehaviorTest::scanMissingDirectorySetsFatalErrorAndPreservesList()
 
     LibraryViewModel viewModel;
     viewModel.setStoragePath(storagePath);
-    QVERIFY(viewModel.load());
+    QVERIFY(viewModel.loadCommand()->execute());
     QCOMPARE(viewModel.count(), 1);
 
-    QVERIFY(!viewModel.scanDirectory(temporaryDirectory.filePath(QStringLiteral("missing"))));
+    viewModel.setScanDirectoryPath(temporaryDirectory.filePath(QStringLiteral("missing")));
+    QVERIFY(!viewModel.scanCommand()->execute());
 
     QVERIFY(!viewModel.lastError().isEmpty());
     QCOMPARE(viewModel.count(), 1);
@@ -266,13 +267,13 @@ void ViewModelBehaviorTest::saveAfterScanCanBeLoadedByNewViewModel()
     LibraryViewModel scanner;
     scanner.setScanDirectoryPath(scanPath);
     scanner.setStoragePath(storagePath);
-    QVERIFY(scanner.scanDirectory());
-    QVERIFY(scanner.save());
+    QVERIFY(scanner.scanCommand()->execute());
+    QVERIFY(scanner.saveCommand()->execute());
     QCOMPARE(scanner.lastError(), QString());
 
     LibraryViewModel loaded;
     loaded.setStoragePath(storagePath);
-    QVERIFY(loaded.load());
+    QVERIFY(loaded.loadCommand()->execute());
 
     QCOMPARE(loaded.count(), 1);
     const QModelIndex index = loaded.songs()->index(0, 0);

@@ -4,6 +4,7 @@
 #include "ViewModel/LibraryViewModelProtocol.h"
 
 #include <QAbstractItemView>
+#include <QAbstractItemModel>
 #include <QBoxLayout>
 #include <QFormLayout>
 #include <QLabel>

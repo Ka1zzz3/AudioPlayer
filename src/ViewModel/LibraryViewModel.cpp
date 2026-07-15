@@ -19,17 +19,17 @@ LibraryViewModel::LibraryViewModel(std::shared_ptr<const ModelService::LibraryUs
     : LibraryViewModelProtocol(parent)
     , m_songs(this)
     , m_libraryUseCase(std::move(libraryUseCase))
-    , m_scanCommand(QStringLiteral("scan"), [this]() { return scanDirectory(); }, this)
-    , m_loadCommand(QStringLiteral("load"), [this]() { return load(); }, this)
-    , m_saveCommand(QStringLiteral("save"), [this]() { return save(); }, this)
-    , m_refreshCommand(QStringLiteral("refresh"), [this]() { return refresh(); }, this)
+    , m_scanCommand(QStringLiteral("scan"), [this]() { return executeScanDirectory(); }, this)
+    , m_loadCommand(QStringLiteral("load"), [this]() { return executeLoad(); }, this)
+    , m_saveCommand(QStringLiteral("save"), [this]() { return executeSave(); }, this)
+    , m_refreshCommand(QStringLiteral("refresh"), [this]() { return executeRefresh(); }, this)
 {
     if (!m_libraryUseCase) {
         m_libraryUseCase = std::make_shared<ModelService::LibraryUseCase>();
     }
 }
 
-SongListModel *LibraryViewModel::songs() noexcept
+QAbstractItemModel *LibraryViewModel::songs() noexcept
 {
     return &m_songs;
 }
@@ -104,7 +104,7 @@ Common::ViewCommand *LibraryViewModel::refreshCommand() noexcept
     return &m_refreshCommand;
 }
 
-bool LibraryViewModel::load()
+bool LibraryViewModel::executeLoad()
 {
     ModelService::LibraryWorkflowResult result = m_libraryUseCase->load(m_storagePath);
     if (!result.ok()) {
@@ -121,7 +121,7 @@ bool LibraryViewModel::load()
     return true;
 }
 
-bool LibraryViewModel::refresh()
+bool LibraryViewModel::executeRefresh()
 {
     ModelService::LibraryWorkflowResult result = m_libraryUseCase->refresh(m_songs.playList());
     const int skippedCount = result.warnings.size();
@@ -136,12 +136,12 @@ bool LibraryViewModel::refresh()
     return true;
 }
 
-bool LibraryViewModel::scanDirectory()
+bool LibraryViewModel::executeScanDirectory()
 {
-    return scanDirectory(m_scanDirectoryPath);
+    return executeScanDirectory(m_scanDirectoryPath);
 }
 
-bool LibraryViewModel::scanDirectory(const QString &directoryPath)
+bool LibraryViewModel::executeScanDirectory(const QString &directoryPath)
 {
     ModelService::LibraryWorkflowResult result = m_libraryUseCase->scanDirectory(directoryPath);
     if (!result.ok()) {
@@ -164,7 +164,7 @@ bool LibraryViewModel::scanDirectory(const QString &directoryPath)
     return true;
 }
 
-bool LibraryViewModel::save()
+bool LibraryViewModel::executeSave()
 {
     ModelService::LibraryWorkflowResult result = m_libraryUseCase->save(m_storagePath, m_songs.playList());
     if (!result.ok()) {

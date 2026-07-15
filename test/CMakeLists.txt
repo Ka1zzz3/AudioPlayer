@@ -79,3 +79,18 @@ target_link_libraries(AudioPlayerViewModelBehaviorTest PRIVATE
 )
 
 add_test(NAME AudioPlayerViewModelBehaviorTest COMMAND AudioPlayerViewModelBehaviorTest)
+
+qt_add_executable(AudioPlayerArchitectureBoundaryTest
+    architecture_boundary_test.cpp
+)
+
+target_compile_definitions(AudioPlayerArchitectureBoundaryTest PRIVATE
+    AUDIOPLAYER_SOURCE_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/.."
+)
+
+target_link_libraries(AudioPlayerArchitectureBoundaryTest PRIVATE
+    Qt6::Core
+    Qt6::Test
+)
+
+add_test(NAME AudioPlayerArchitectureBoundaryTest COMMAND AudioPlayerArchitectureBoundaryTest)
