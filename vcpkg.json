@@ -19,6 +19,13 @@
         "xcb-xlib",
         "xrender"
       ]
+    },
+    {
+      "name": "qtmultimedia",
+      "default-features": false,
+      "features": [
+        "widgets"
+      ]
     }
   ],
   "overrides": [
@@ -26,6 +33,11 @@
       "name": "qtbase",
       "version": "6.10.3",
       "port-version": 1
+    },
+    {
+      "name": "qtmultimedia",
+      "version": "6.10.3",
+      "port-version": 0
     }
   ]
 }

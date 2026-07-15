@@ -13,6 +13,7 @@ class ArchitectureBoundaryTest : public QObject
 
 private slots:
     void widgetsViewBindsOnlyToViewModelProtocol();
+    void playbackBackendDoesNotLeakIntoViewOrProtocols();
     void productionBuildDoesNotReferenceQmlOrQtQuick();
     void vcpkgManifestUsesWidgetsWithoutQmlDependencies();
 };
@@ -73,6 +74,32 @@ void ArchitectureBoundaryTest::widgetsViewBindsOnlyToViewModelProtocol()
              "View must not directly call load/save/refresh/scanDirectory business methods.");
 }
 
+void ArchitectureBoundaryTest::playbackBackendDoesNotLeakIntoViewOrProtocols()
+{
+    const QStringList filesToCheck{
+        QStringLiteral("src/View/MainWindow.h"),
+        QStringLiteral("src/View/MainWindow.cpp"),
+        QStringLiteral("src/ViewModel/LibraryViewModelProtocol.h"),
+    };
+    const QStringList forbiddenTokens{
+        QStringLiteral("QMediaPlayer"),
+        QStringLiteral("QAudioOutput"),
+        QStringLiteral("QMediaPlaylist"),
+        QStringLiteral("#include <QMedia"),
+        QStringLiteral("#include <QAudioOutput"),
+        QStringLiteral("#include \"Model/Service/QtMultimediaPlaybackService.h\""),
+    };
+
+    for (const QString &relativePath : filesToCheck) {
+        const QString text = readTextFile(relativePath);
+        for (const QString &token : forbiddenTokens) {
+            QVERIFY2(!text.contains(token),
+                     qPrintable(QStringLiteral("%1 must not expose playback backend token %2")
+                                     .arg(relativePath, token)));
+        }
+    }
+}
+
 void ArchitectureBoundaryTest::productionBuildDoesNotReferenceQmlOrQtQuick()
 {
     const QStringList forbiddenTokens{
@@ -96,7 +123,9 @@ void ArchitectureBoundaryTest::vcpkgManifestUsesWidgetsWithoutQmlDependencies()
 {
     const QString manifest = readTextFile(QStringLiteral("vcpkg.json"));
     QVERIFY2(manifest.contains(QStringLiteral("\"widgets\"")), "vcpkg qtbase features must include Widgets.");
+    QVERIFY2(manifest.contains(QStringLiteral("\"qtmultimedia\"")), "vcpkg manifest must include Qt Multimedia.");
     QVERIFY2(!manifest.contains(QStringLiteral("qtdeclarative")), "vcpkg manifest must not depend on Qt Declarative/QML.");
+    QVERIFY2(!manifest.contains(QStringLiteral("\"qml\"")), "vcpkg manifest must not enable Qt Multimedia QML imports.");
     QVERIFY2(!manifest.contains(QStringLiteral("qtshadertools")), "vcpkg manifest must not retain Qt Quick shader tooling override.");
     QVERIFY2(!manifest.contains(QStringLiteral("qtlanguageserver")), "vcpkg manifest must not retain QML language server override.");
 }

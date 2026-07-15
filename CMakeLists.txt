@@ -30,6 +30,14 @@ if(AUDIOPLAYER_BUILD_APP)
             "-DAUDIOPLAYER_BUILD_APP=OFF for model/viewmodel-only tests."
         )
     endif()
+    find_package(Qt6 6.4 QUIET COMPONENTS Multimedia)
+    if(NOT Qt6Multimedia_FOUND)
+        message(FATAL_ERROR
+            "AUDIOPLAYER_BUILD_APP=ON requires Qt6 Multimedia for the playback backend. "
+            "Install the Qt Multimedia development module or configure with "
+            "-DAUDIOPLAYER_BUILD_APP=OFF for model/viewmodel-only tests."
+        )
+    endif()
 endif()
 
 find_package(nlohmann_json CONFIG QUIET)
@@ -81,6 +89,7 @@ if(AUDIOPLAYER_BUILD_APP)
     target_link_libraries(AudioPlayer PRIVATE
         Qt6::Core
         Qt6::Gui
+        Qt6::Multimedia
         Qt6::Widgets
         nlohmann_json::nlohmann_json
     )
