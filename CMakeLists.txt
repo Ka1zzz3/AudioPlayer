@@ -89,6 +89,8 @@ if(AUDIOPLAYER_BUILD_QML_APP)
         # resolve the embedded qmldir and Main.qml reliably.
         RESOURCE_PREFIX /qt/qml
         SOURCES
+            src/Common/ViewCommand.cpp
+            src/Common/ViewCommand.h
             src/ViewModel/LibraryViewModel.cpp
             src/ViewModel/LibraryViewModel.h
             src/ViewModel/SongListModel.cpp

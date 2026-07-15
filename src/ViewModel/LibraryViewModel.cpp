@@ -19,6 +19,10 @@ LibraryViewModel::LibraryViewModel(std::shared_ptr<const ModelService::LibraryUs
     : QObject(parent)
     , m_songs(this)
     , m_libraryUseCase(std::move(libraryUseCase))
+    , m_scanCommand(QStringLiteral("scan"), [this]() { return scanDirectory(); }, this)
+    , m_loadCommand(QStringLiteral("load"), [this]() { return load(); }, this)
+    , m_saveCommand(QStringLiteral("save"), [this]() { return save(); }, this)
+    , m_refreshCommand(QStringLiteral("refresh"), [this]() { return refresh(); }, this)
 {
     if (!m_libraryUseCase) {
         m_libraryUseCase = std::make_shared<ModelService::LibraryUseCase>();
@@ -78,6 +82,26 @@ const QStringList &LibraryViewModel::warnings() const noexcept
 const QString &LibraryViewModel::statusMessage() const noexcept
 {
     return m_statusMessage;
+}
+
+Common::ViewCommand *LibraryViewModel::scanCommand() noexcept
+{
+    return &m_scanCommand;
+}
+
+Common::ViewCommand *LibraryViewModel::loadCommand() noexcept
+{
+    return &m_loadCommand;
+}
+
+Common::ViewCommand *LibraryViewModel::saveCommand() noexcept
+{
+    return &m_saveCommand;
+}
+
+Common::ViewCommand *LibraryViewModel::refreshCommand() noexcept
+{
+    return &m_refreshCommand;
 }
 
 bool LibraryViewModel::load()

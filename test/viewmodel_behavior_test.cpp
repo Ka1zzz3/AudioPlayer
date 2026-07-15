@@ -1,6 +1,7 @@
 #include "Model/AudioFile.h"
 #include "Model/JsonSongRepository.h"
 #include "Model/PlayList.h"
+#include "Common/ViewCommand.h"
 #include "ViewModel/LibraryViewModel.h"
 #include "ViewModel/SongListModel.h"
 
@@ -15,6 +16,7 @@
 using AudioPlayer::Model::AudioFile;
 using AudioPlayer::Model::JsonSongRepository;
 using AudioPlayer::Model::PlayList;
+using AudioPlayer::Common::ViewCommand;
 using AudioPlayer::ViewModel::LibraryViewModel;
 using AudioPlayer::ViewModel::SongListModel;
 
@@ -31,6 +33,7 @@ private slots:
     void scanDirectoryUpdatesCountRolesWarningsAndStatus();
     void scanMissingDirectorySetsFatalErrorAndPreservesList();
     void saveAfterScanCanBeLoadedByNewViewModel();
+    void commandsExecuteCurrentViewModelIntentsAndUpdateState();
     void songListModelRolesExposeExpectedValues();
 };
 
@@ -278,6 +281,72 @@ void ViewModelBehaviorTest::saveAfterScanCanBeLoadedByNewViewModel()
     QCOMPARE(loaded.songs()->data(index, SongListModel::ArtistRole).toString(), QStringLiteral("Unknown Artist"));
     QCOMPARE(loaded.songs()->data(index, SongListModel::AlbumRole).toString(), QStringLiteral("Unknown Album"));
     QCOMPARE(loaded.songs()->data(index, SongListModel::DurationSecondsRole).toLongLong(), 0);
+}
+
+void ViewModelBehaviorTest::commandsExecuteCurrentViewModelIntentsAndUpdateState()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+    const QString scanPath = temporaryDirectory.filePath(QStringLiteral("scan"));
+    QVERIFY(QDir().mkpath(scanPath));
+    const QString audioPath = QDir(scanPath).filePath(QStringLiteral("Command Track.mp3"));
+    QFile audioFile(audioPath);
+    QVERIFY(audioFile.open(QIODevice::WriteOnly));
+    QVERIFY(audioFile.write("fake audio bytes") > 0);
+    audioFile.close();
+    QFile textFile(QDir(scanPath).filePath(QStringLiteral("unsupported.txt")));
+    QVERIFY(textFile.open(QIODevice::WriteOnly));
+    QVERIFY(textFile.write("not audio") > 0);
+    textFile.close();
+
+    LibraryViewModel viewModel;
+    QVERIFY(viewModel.scanCommand() != nullptr);
+    QVERIFY(viewModel.loadCommand() != nullptr);
+    QVERIFY(viewModel.saveCommand() != nullptr);
+    QVERIFY(viewModel.refreshCommand() != nullptr);
+    QVERIFY(viewModel.scanCommand()->isEnabled());
+    QCOMPARE(viewModel.scanCommand()->name(), QStringLiteral("scan"));
+    QCOMPARE(viewModel.loadCommand()->name(), QStringLiteral("load"));
+    QCOMPARE(viewModel.saveCommand()->name(), QStringLiteral("save"));
+    QCOMPARE(viewModel.refreshCommand()->name(), QStringLiteral("refresh"));
+
+    QSignalSpy scanExecutedSpy(viewModel.scanCommand(), &ViewCommand::executed);
+    viewModel.setScanDirectoryPath(scanPath);
+    QVERIFY(viewModel.scanCommand()->execute());
+    QCOMPARE(scanExecutedSpy.count(), 1);
+    QCOMPARE(scanExecutedSpy.takeFirst().at(0).toBool(), true);
+    QCOMPARE(viewModel.lastError(), QString());
+    QCOMPARE(viewModel.count(), 1);
+    QCOMPARE(viewModel.warnings().size(), 1);
+    QVERIFY(viewModel.warnings().at(0).contains(QStringLiteral("unsupported.txt")));
+    QVERIFY(viewModel.statusMessage().contains(QStringLiteral("Scanned")));
+
+    const QString storagePath = temporaryDirectory.filePath(QStringLiteral("library.json"));
+    viewModel.setStoragePath(storagePath);
+    QVERIFY(viewModel.saveCommand()->execute());
+    QCOMPARE(viewModel.lastError(), QString());
+    QVERIFY(QFileInfo::exists(storagePath));
+    QVERIFY(viewModel.statusMessage().contains(QStringLiteral("Saved")));
+
+    LibraryViewModel loaded;
+    loaded.setStoragePath(storagePath);
+    QVERIFY(loaded.loadCommand()->execute());
+    QCOMPARE(loaded.lastError(), QString());
+    QCOMPARE(loaded.count(), 1);
+    QVERIFY(loaded.statusMessage().contains(QStringLiteral("Loaded")));
+
+    QVERIFY(QFile::remove(audioPath));
+    QVERIFY(loaded.refreshCommand()->execute());
+    QCOMPARE(loaded.lastError(), QString());
+    QCOMPARE(loaded.count(), 0);
+    QCOMPARE(loaded.warnings().size(), 1);
+    QCOMPARE(loaded.warnings().at(0), QFileInfo(audioPath).absoluteFilePath());
+    QVERIFY(loaded.statusMessage().contains(QStringLiteral("skipped"), Qt::CaseInsensitive));
+
+    loaded.setStoragePath(temporaryDirectory.filePath(QStringLiteral("missing.json")));
+    QVERIFY(!loaded.loadCommand()->execute());
+    QVERIFY(!loaded.lastError().isEmpty());
+    QVERIFY(loaded.lastError().contains(QStringLiteral("reading"), Qt::CaseInsensitive));
 }
 
 void ViewModelBehaviorTest::songListModelRolesExposeExpectedValues()
