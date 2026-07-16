@@ -156,6 +156,8 @@ if(AUDIOPLAYER_BUILD_APP)
         src/Model/Service/FfmpegTranscodingBackend.h
         src/Model/Service/LibraryUseCase.cpp
         src/Model/Service/LibraryUseCase.h
+        src/Model/Service/NullAudioEffectsService.cpp
+        src/Model/Service/NullAudioEffectsService.h
         src/Model/Service/NullPlaybackService.cpp
         src/Model/Service/NullPlaybackService.h
         src/Model/Service/PlaybackTypes.h
@@ -221,6 +223,13 @@ if(AUDIOPLAYER_BUILD_APP)
         )
         target_link_libraries(AudioPlayer PRIVATE
             PkgConfig::AUDIOPLAYER_GSTREAMER_EFFECTS
+        )
+        target_compile_definitions(AudioPlayer PRIVATE
+            AUDIOPLAYER_GSTREAMER_EFFECTS_AVAILABLE=1
+        )
+    else()
+        target_compile_definitions(AudioPlayer PRIVATE
+            AUDIOPLAYER_GSTREAMER_EFFECTS_AVAILABLE=0
         )
     endif()
 endif()

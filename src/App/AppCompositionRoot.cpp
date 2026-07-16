@@ -2,13 +2,18 @@
 
 #include "Model/ProcessingTask.h"
 #include "Model/Service/LibraryUseCase.h"
+#include "Model/Service/AudioEffectsUseCase.h"
 #include "Model/Service/FfmpegTranscodingBackend.h"
+#include "Model/Service/IAudioEffectsService.h"
+#include "Model/Service/IPlaybackService.h"
+#include "Model/Service/NullAudioEffectsService.h"
 #include "Model/Service/QtMultimediaPlaybackService.h"
 #include "Model/Service/PlaybackUseCase.h"
 #include "Model/Service/ProcessingUseCase.h"
 #include "Model/Service/TranscodedPlaylistService.h"
 #include "View/MainWindow.h"
 #include "ViewModel/LibraryViewModel.h"
+#include "ViewModel/AudioEffectsViewModel.h"
 #include "ViewModel/PlaybackViewModel.h"
 #include "ViewModel/PlaylistCollectionViewModel.h"
 #include "ViewModel/ProcessingViewModel.h"
@@ -18,6 +23,10 @@
 #include <QSet>
 
 #include <memory>
+
+#if AUDIOPLAYER_GSTREAMER_EFFECTS_AVAILABLE
+#include "Model/Service/GStreamerEffectsPlaybackBackend.h"
+#endif
 
 namespace AudioPlayer::App {
 
@@ -40,9 +49,23 @@ int runWidgetsApplication(int argc, char *argv[])
     auto libraryUseCase = std::make_shared<const Model::Service::LibraryUseCase>();
     ViewModel::LibraryViewModel libraryViewModel(std::move(libraryUseCase));
 
-    Model::Service::QtMultimediaPlaybackService playbackService;
-    Model::Service::PlaybackUseCase playbackUseCase(playbackService);
-    ViewModel::PlaybackViewModel playbackViewModel(playbackUseCase, playbackService);
+    std::unique_ptr<Model::Service::IPlaybackService> playbackService;
+    std::unique_ptr<Model::Service::IAudioEffectsService> audioEffectsService;
+
+#if AUDIOPLAYER_GSTREAMER_EFFECTS_AVAILABLE
+    auto gstreamerEffectsCore = std::make_shared<Model::Service::GStreamerEffectsBackendCore>();
+    playbackService = std::make_unique<Model::Service::GStreamerPlaybackService>(gstreamerEffectsCore);
+    audioEffectsService = std::make_unique<Model::Service::GStreamerAudioEffectsService>(gstreamerEffectsCore);
+#else
+    playbackService = std::make_unique<Model::Service::QtMultimediaPlaybackService>();
+    audioEffectsService = std::make_unique<Model::Service::NullAudioEffectsService>(
+        QStringLiteral("GStreamer effects backend is unavailable; ordinary Qt Multimedia playback fallback is active."));
+#endif
+
+    Model::Service::PlaybackUseCase playbackUseCase(*playbackService);
+    ViewModel::PlaybackViewModel playbackViewModel(playbackUseCase, *playbackService);
+    auto audioEffectsUseCase = std::make_shared<Model::Service::AudioEffectsUseCase>(audioEffectsService.get());
+    ViewModel::AudioEffectsViewModel audioEffectsViewModel(audioEffectsUseCase);
     ViewModel::PlaylistCollectionViewModel playlistCollectionViewModel;
     Model::Service::FfmpegTranscodingBackend transcodingBackend(QString::fromUtf8(AUDIOPLAYER_FFMPEG_EXECUTABLE),
                                                                 QString::fromUtf8(AUDIOPLAYER_FFPROBE_EXECUTABLE));
