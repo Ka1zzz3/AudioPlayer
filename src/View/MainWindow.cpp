@@ -1,6 +1,7 @@
 #include "View/MainWindow.h"
 
 #include "Common/ViewCommand.h"
+#include "ViewModel/AudioEffectsViewModelProtocol.h"
 #include "ViewModel/LibraryViewModelProtocol.h"
 #include "ViewModel/PlaybackViewModelProtocol.h"
 #include "ViewModel/PlaylistCollectionViewModelProtocol.h"
@@ -10,6 +11,7 @@
 #include <QAbstractItemView>
 #include <QAbstractItemModel>
 #include <QBoxLayout>
+#include <QCheckBox>
 #include <QCloseEvent>
 #include <QComboBox>
 #include <QFileDialog>
@@ -25,6 +27,9 @@
 #include <QStringList>
 #include <QWidget>
 
+#include <algorithm>
+#include <array>
+#include <cmath>
 #include <limits>
 
 namespace AudioPlayer::View {
@@ -40,17 +45,41 @@ QString formatTime(qint64 milliseconds)
     return QStringLiteral("%1:%2").arg(minutes).arg(seconds, 2, 10, QLatin1Char('0'));
 }
 
+double playbackRateFromLabel(QString label)
+{
+    label = label.trimmed();
+    if (label.endsWith(QLatin1Char('x'), Qt::CaseInsensitive)) {
+        label.chop(1);
+    }
+
+    bool ok = false;
+    const double rate = label.toDouble(&ok);
+    return ok ? rate : 1.0;
+}
+
+int sliderValueFromGain(double gainDb)
+{
+    return static_cast<int>(std::lround(std::clamp(gainDb, -12.0, 12.0) * 10.0));
+}
+
+double gainFromSliderValue(int value)
+{
+    return std::clamp(static_cast<double>(value) / 10.0, -12.0, 12.0);
+}
+
 } // namespace
 
 MainWindow::MainWindow(ViewModel::LibraryViewModelProtocol &libraryViewModel,
                        ViewModel::PlaylistCollectionViewModelProtocol &playlistViewModel,
                        ViewModel::PlaybackViewModelProtocol &playbackViewModel,
+                       ViewModel::AudioEffectsViewModelProtocol &audioEffectsViewModel,
                        ViewModel::ProcessingViewModelProtocol &processingViewModel,
                        QWidget *parent)
     : QMainWindow(parent)
     , m_viewModel(libraryViewModel)
     , m_playlistViewModel(playlistViewModel)
     , m_playbackViewModel(playbackViewModel)
+    , m_audioEffectsViewModel(audioEffectsViewModel)
     , m_processingViewModel(processingViewModel)
 {
     buildUi();
@@ -219,6 +248,55 @@ void MainWindow::buildUi()
     mainLayout->addWidget(m_playbackStatusLabel);
     mainLayout->addWidget(m_playbackErrorLabel);
 
+    auto *effectsTitleLabel = new QLabel(tr("Playback speed and EQ"), centralWidget);
+    QFont effectsTitleFont = effectsTitleLabel->font();
+    effectsTitleFont.setBold(true);
+    effectsTitleLabel->setFont(effectsTitleFont);
+    mainLayout->addWidget(effectsTitleLabel);
+
+    auto *speedLayout = new QHBoxLayout();
+    speedLayout->addWidget(new QLabel(tr("Speed"), centralWidget));
+    m_playbackRateComboBox = new QComboBox(centralWidget);
+    m_resetPlaybackRateButton = new QPushButton(tr("Reset 1x"), centralWidget);
+    speedLayout->addWidget(m_playbackRateComboBox);
+    speedLayout->addWidget(m_resetPlaybackRateButton);
+    speedLayout->addStretch(1);
+    mainLayout->addLayout(speedLayout);
+
+    auto *equalizerControlsLayout = new QHBoxLayout();
+    m_equalizerEnabledCheckBox = new QCheckBox(tr("Enable EQ"), centralWidget);
+    m_equalizerPresetComboBox = new QComboBox(centralWidget);
+    m_resetEqualizerButton = new QPushButton(tr("Reset Flat"), centralWidget);
+    equalizerControlsLayout->addWidget(m_equalizerEnabledCheckBox);
+    equalizerControlsLayout->addWidget(new QLabel(tr("Preset"), centralWidget));
+    equalizerControlsLayout->addWidget(m_equalizerPresetComboBox);
+    equalizerControlsLayout->addWidget(m_resetEqualizerButton);
+    equalizerControlsLayout->addStretch(1);
+    mainLayout->addLayout(equalizerControlsLayout);
+
+    auto *equalizerSlidersLayout = new QHBoxLayout();
+    const QStringList equalizerBandLabels = {tr("60 Hz"), tr("230 Hz"), tr("910 Hz"), tr("3.6 kHz"), tr("14 kHz")};
+    for (int index = 0; index < static_cast<int>(m_equalizerSliders.size()); ++index) {
+        auto *bandLayout = new QVBoxLayout();
+        auto *bandLabel = new QLabel(equalizerBandLabels.at(index), centralWidget);
+        m_equalizerSliders[static_cast<std::size_t>(index)] = new QSlider(Qt::Vertical, centralWidget);
+        m_equalizerSliders[static_cast<std::size_t>(index)]->setRange(-120, 120);
+        m_equalizerSliders[static_cast<std::size_t>(index)]->setValue(0);
+        m_equalizerSliders[static_cast<std::size_t>(index)]->setTickInterval(60);
+        m_equalizerSliders[static_cast<std::size_t>(index)]->setTickPosition(QSlider::TicksBothSides);
+        bandLayout->addWidget(bandLabel);
+        bandLayout->addWidget(m_equalizerSliders[static_cast<std::size_t>(index)]);
+        equalizerSlidersLayout->addLayout(bandLayout);
+    }
+    equalizerSlidersLayout->addStretch(1);
+    mainLayout->addLayout(equalizerSlidersLayout);
+
+    m_audioEffectsStatusLabel = new QLabel(centralWidget);
+    m_audioEffectsErrorLabel = new QLabel(centralWidget);
+    m_audioEffectsErrorLabel->setStyleSheet(QStringLiteral("color: #a00000;"));
+    mainLayout->addWidget(m_audioEffectsStatusLabel);
+    mainLayout->addWidget(m_audioEffectsErrorLabel);
+
     auto *processingTitleLabel = new QLabel(tr("Transcoding"), centralWidget);
     QFont processingTitleFont = processingTitleLabel->font();
     processingTitleFont.setBold(true);
@@ -264,6 +342,7 @@ void MainWindow::bindViewModel()
     bindLibraryViewModel();
     bindPlaylistCollectionViewModel();
     bindPlaybackViewModel();
+    bindAudioEffectsViewModel();
     bindProcessingViewModel();
 }
 
@@ -428,6 +507,89 @@ void MainWindow::bindPlaybackViewModel()
     updatePlaybackMuted();
     updatePlaybackError();
     updatePlaybackStatusMessage();
+}
+
+
+void MainWindow::bindAudioEffectsViewModel()
+{
+    m_playbackRateComboBox->clear();
+    for (const QString &label : m_audioEffectsViewModel.playbackRateLabels()) {
+        m_playbackRateComboBox->addItem(label, playbackRateFromLabel(label));
+    }
+
+    m_equalizerPresetComboBox->clear();
+    m_equalizerPresetComboBox->addItems(m_audioEffectsViewModel.equalizerPresetLabels());
+
+    bindButton(*m_resetPlaybackRateButton, m_audioEffectsViewModel.resetPlaybackRateCommand());
+    bindButton(*m_resetEqualizerButton, m_audioEffectsViewModel.resetEqualizerCommand());
+
+    connect(m_playbackRateComboBox,
+            QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this,
+            [this](int index) {
+                if (m_syncingAudioEffects || index < 0) {
+                    return;
+                }
+                m_audioEffectsViewModel.setPlaybackRate(m_playbackRateComboBox->itemData(index).toDouble());
+            });
+
+    connect(m_equalizerEnabledCheckBox, &QCheckBox::toggled, this, [this](bool enabled) {
+        if (!m_syncingAudioEffects) {
+            m_audioEffectsViewModel.setEqualizerEnabled(enabled);
+        }
+    });
+
+    for (int index = 0; index < static_cast<int>(m_equalizerSliders.size()); ++index) {
+        QSlider *slider = m_equalizerSliders[static_cast<std::size_t>(index)];
+        connect(slider, &QSlider::valueChanged, this, [this, index](int value) {
+            if (!m_syncingAudioEffects) {
+                m_audioEffectsViewModel.setEqualizerBandGain(index, gainFromSliderValue(value));
+            }
+        });
+    }
+
+    connect(m_equalizerPresetComboBox, &QComboBox::currentTextChanged, this, [this](const QString &preset) {
+        if (!m_syncingAudioEffects) {
+            m_audioEffectsViewModel.setEqualizerPreset(preset);
+        }
+    });
+
+    connect(&m_audioEffectsViewModel,
+            &ViewModel::AudioEffectsViewModelProtocol::capabilitiesChanged,
+            this,
+            &MainWindow::updateAudioEffectsCapabilities);
+    connect(&m_audioEffectsViewModel,
+            &ViewModel::AudioEffectsViewModelProtocol::playbackRateChanged,
+            this,
+            &MainWindow::updateAudioEffectsPlaybackRate);
+    connect(&m_audioEffectsViewModel,
+            &ViewModel::AudioEffectsViewModelProtocol::equalizerEnabledChanged,
+            this,
+            &MainWindow::updateAudioEffectsEqualizerEnabled);
+    connect(&m_audioEffectsViewModel,
+            &ViewModel::AudioEffectsViewModelProtocol::equalizerBandGainsChanged,
+            this,
+            &MainWindow::updateAudioEffectsBandGains);
+    connect(&m_audioEffectsViewModel,
+            &ViewModel::AudioEffectsViewModelProtocol::equalizerPresetChanged,
+            this,
+            &MainWindow::updateAudioEffectsPreset);
+    connect(&m_audioEffectsViewModel,
+            &ViewModel::AudioEffectsViewModelProtocol::statusMessageChanged,
+            this,
+            &MainWindow::updateAudioEffectsStatusMessage);
+    connect(&m_audioEffectsViewModel,
+            &ViewModel::AudioEffectsViewModelProtocol::lastErrorChanged,
+            this,
+            &MainWindow::updateAudioEffectsLastError);
+
+    updateAudioEffectsCapabilities();
+    updateAudioEffectsPlaybackRate();
+    updateAudioEffectsEqualizerEnabled();
+    updateAudioEffectsBandGains();
+    updateAudioEffectsPreset();
+    updateAudioEffectsStatusMessage();
+    updateAudioEffectsLastError();
 }
 
 void MainWindow::bindProcessingViewModel()
@@ -635,6 +797,91 @@ void MainWindow::updatePlaybackError()
 void MainWindow::updatePlaybackStatusMessage()
 {
     setLabelVisibleText(*m_playbackStatusLabel, m_playbackViewModel.statusMessage());
+}
+
+
+void MainWindow::updateAudioEffectsCapabilities()
+{
+    const bool rateAvailable = m_audioEffectsViewModel.supportsPitchPreservingRate();
+    const bool eqAvailable = m_audioEffectsViewModel.supportsEqualizer();
+    m_playbackRateComboBox->setEnabled(rateAvailable);
+    m_resetPlaybackRateButton->setEnabled(rateAvailable && m_audioEffectsViewModel.resetPlaybackRateCommand() != nullptr);
+    m_equalizerEnabledCheckBox->setEnabled(eqAvailable);
+    m_equalizerPresetComboBox->setEnabled(eqAvailable);
+    m_resetEqualizerButton->setEnabled(eqAvailable && m_audioEffectsViewModel.resetEqualizerCommand() != nullptr);
+    for (QSlider *slider : m_equalizerSliders) {
+        if (slider != nullptr) {
+            slider->setEnabled(eqAvailable);
+        }
+    }
+}
+
+void MainWindow::updateAudioEffectsPlaybackRate()
+{
+    const QSignalBlocker blocker(m_playbackRateComboBox);
+    Q_UNUSED(blocker)
+    m_syncingAudioEffects = true;
+    const double rate = m_audioEffectsViewModel.playbackRate();
+    for (int index = 0; index < m_playbackRateComboBox->count(); ++index) {
+        if (std::abs(m_playbackRateComboBox->itemData(index).toDouble() - rate) < 0.001) {
+            m_playbackRateComboBox->setCurrentIndex(index);
+            break;
+        }
+    }
+    m_syncingAudioEffects = false;
+}
+
+void MainWindow::updateAudioEffectsEqualizerEnabled()
+{
+    const QSignalBlocker blocker(m_equalizerEnabledCheckBox);
+    Q_UNUSED(blocker)
+    m_syncingAudioEffects = true;
+    m_equalizerEnabledCheckBox->setChecked(m_audioEffectsViewModel.equalizerEnabled());
+    m_syncingAudioEffects = false;
+}
+
+void MainWindow::updateAudioEffectsBandGains()
+{
+    const std::array<double, 5> gains = {m_audioEffectsViewModel.band0GainDb(),
+                                         m_audioEffectsViewModel.band1GainDb(),
+                                         m_audioEffectsViewModel.band2GainDb(),
+                                         m_audioEffectsViewModel.band3GainDb(),
+                                         m_audioEffectsViewModel.band4GainDb()};
+    m_syncingAudioEffects = true;
+    for (std::size_t index = 0; index < gains.size(); ++index) {
+        QSlider *slider = m_equalizerSliders[index];
+        if (slider == nullptr) {
+            continue;
+        }
+        const QSignalBlocker blocker(slider);
+        Q_UNUSED(blocker)
+        slider->setValue(sliderValueFromGain(gains[index]));
+    }
+    m_syncingAudioEffects = false;
+}
+
+void MainWindow::updateAudioEffectsPreset()
+{
+    const QSignalBlocker blocker(m_equalizerPresetComboBox);
+    Q_UNUSED(blocker)
+    m_syncingAudioEffects = true;
+    const int index = m_equalizerPresetComboBox->findText(m_audioEffectsViewModel.equalizerPreset());
+    if (index >= 0) {
+        m_equalizerPresetComboBox->setCurrentIndex(index);
+    }
+    m_syncingAudioEffects = false;
+}
+
+void MainWindow::updateAudioEffectsStatusMessage()
+{
+    const QString status = m_audioEffectsViewModel.statusMessage();
+    setLabelVisibleText(*m_audioEffectsStatusLabel, status.isEmpty() ? QString() : tr("Effects: %1").arg(status));
+}
+
+void MainWindow::updateAudioEffectsLastError()
+{
+    const QString error = m_audioEffectsViewModel.lastError();
+    setLabelVisibleText(*m_audioEffectsErrorLabel, error.isEmpty() ? QString() : tr("Effects error: %1").arg(error));
 }
 
 void MainWindow::updateProcessingInputSummary()

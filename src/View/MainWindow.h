@@ -4,7 +4,10 @@
 #include <QString>
 #include <QStringList>
 
+#include <array>
+
 class QLabel;
+class QCheckBox;
 class QComboBox;
 class QCloseEvent;
 class QLineEdit;
@@ -18,6 +21,7 @@ class ViewCommand;
 }
 
 namespace AudioPlayer::ViewModel {
+class AudioEffectsViewModelProtocol;
 class LibraryViewModelProtocol;
 class PlaybackViewModelProtocol;
 class PlaylistCollectionViewModelProtocol;
@@ -33,6 +37,7 @@ public:
     MainWindow(ViewModel::LibraryViewModelProtocol &libraryViewModel,
                ViewModel::PlaylistCollectionViewModelProtocol &playlistViewModel,
                ViewModel::PlaybackViewModelProtocol &playbackViewModel,
+               ViewModel::AudioEffectsViewModelProtocol &audioEffectsViewModel,
                ViewModel::ProcessingViewModelProtocol &processingViewModel,
                QWidget *parent = nullptr);
 
@@ -45,6 +50,7 @@ private:
     void bindLibraryViewModel();
     void bindPlaylistCollectionViewModel();
     void bindPlaybackViewModel();
+    void bindAudioEffectsViewModel();
     void bindProcessingViewModel();
     void bindLineEdit(QLineEdit &lineEdit,
                       const QString &(ViewModel::LibraryViewModelProtocol::*getter)() const noexcept,
@@ -67,6 +73,13 @@ private:
     void updatePlaybackMuted();
     void updatePlaybackError();
     void updatePlaybackStatusMessage();
+    void updateAudioEffectsCapabilities();
+    void updateAudioEffectsPlaybackRate();
+    void updateAudioEffectsEqualizerEnabled();
+    void updateAudioEffectsBandGains();
+    void updateAudioEffectsPreset();
+    void updateAudioEffectsStatusMessage();
+    void updateAudioEffectsLastError();
     void updateProcessingInputSummary();
     void updateProcessingOutputDirectory();
     void updateProcessingOutputFormat();
@@ -80,6 +93,7 @@ private:
     ViewModel::LibraryViewModelProtocol &m_viewModel;
     ViewModel::PlaylistCollectionViewModelProtocol &m_playlistViewModel;
     ViewModel::PlaybackViewModelProtocol &m_playbackViewModel;
+    ViewModel::AudioEffectsViewModelProtocol &m_audioEffectsViewModel;
     ViewModel::ProcessingViewModelProtocol &m_processingViewModel;
     QLineEdit *m_storagePathInput = nullptr;
     QLineEdit *m_scanDirectoryPathInput = nullptr;
@@ -99,6 +113,8 @@ private:
     QPushButton *m_previousButton = nullptr;
     QPushButton *m_nextButton = nullptr;
     QPushButton *m_muteButton = nullptr;
+    QPushButton *m_resetPlaybackRateButton = nullptr;
+    QPushButton *m_resetEqualizerButton = nullptr;
     QPushButton *m_selectProcessingInputsButton = nullptr;
     QPushButton *m_selectProcessingOutputDirectoryButton = nullptr;
     QPushButton *m_enqueueProcessingButton = nullptr;
@@ -106,6 +122,10 @@ private:
     QPushButton *m_cancelAllProcessingButton = nullptr;
     QSlider *m_progressSlider = nullptr;
     QSlider *m_volumeSlider = nullptr;
+    std::array<QSlider *, 5> m_equalizerSliders = {};
+    QCheckBox *m_equalizerEnabledCheckBox = nullptr;
+    QComboBox *m_playbackRateComboBox = nullptr;
+    QComboBox *m_equalizerPresetComboBox = nullptr;
     QComboBox *m_processingFormatComboBox = nullptr;
     QLabel *m_countLabel = nullptr;
     QLabel *m_statusLabel = nullptr;
@@ -118,6 +138,8 @@ private:
     QLabel *m_playbackPositionLabel = nullptr;
     QLabel *m_playbackErrorLabel = nullptr;
     QLabel *m_playbackStatusLabel = nullptr;
+    QLabel *m_audioEffectsStatusLabel = nullptr;
+    QLabel *m_audioEffectsErrorLabel = nullptr;
     QLabel *m_processingInputSummaryLabel = nullptr;
     QLabel *m_processingOutputDirectoryLabel = nullptr;
     QLabel *m_processingStatusLabel = nullptr;
@@ -127,6 +149,7 @@ private:
     QListView *m_processingTaskListView = nullptr;
     bool m_userSeeking = false;
     bool m_syncingVolume = false;
+    bool m_syncingAudioEffects = false;
 };
 
 } // namespace AudioPlayer::View

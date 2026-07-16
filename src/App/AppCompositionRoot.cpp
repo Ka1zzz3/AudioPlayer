@@ -141,7 +141,7 @@ int runWidgetsApplication(int argc, char *argv[])
                          }
                      });
 
-    View::MainWindow mainWindow(libraryViewModel, playlistCollectionViewModel, playbackViewModel, processingViewModel);
+    View::MainWindow mainWindow(libraryViewModel, playlistCollectionViewModel, playbackViewModel, audioEffectsViewModel, processingViewModel);
 
     mainWindow.show();
     return application.exec();
