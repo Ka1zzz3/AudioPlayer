@@ -53,6 +53,26 @@ target_link_libraries(AudioPlayerLibraryDocumentModelTest PRIVATE
 add_test(NAME AudioPlayerLibraryDocumentModelTest COMMAND AudioPlayerLibraryDocumentModelTest)
 
 
+
+qt_add_executable(AudioPlayerProcessingTaskModelTest
+    processing_task_model_test.cpp
+    ../src/Model/ProcessingTask.cpp
+    ../src/Model/ProcessingTask.h
+    ../src/Model/ProcessingTypes.cpp
+    ../src/Model/ProcessingTypes.h
+)
+
+target_include_directories(AudioPlayerProcessingTaskModelTest PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/../src"
+)
+
+target_link_libraries(AudioPlayerProcessingTaskModelTest PRIVATE
+    Qt6::Core
+    Qt6::Test
+)
+
+add_test(NAME AudioPlayerProcessingTaskModelTest COMMAND AudioPlayerProcessingTaskModelTest)
+
 qt_add_executable(AudioPlayerJsonLibraryDocumentRepositoryTest
     json_library_document_repository_test.cpp
     ../src/Model/AudioFile.cpp

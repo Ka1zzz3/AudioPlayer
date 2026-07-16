@@ -72,6 +72,10 @@ if(AUDIOPLAYER_BUILD_APP)
         src/Model/LibraryPlaylist.h
         src/Model/PlayList.cpp
         src/Model/PlayList.h
+        src/Model/ProcessingTask.cpp
+        src/Model/ProcessingTask.h
+        src/Model/ProcessingTypes.cpp
+        src/Model/ProcessingTypes.h
         src/Model/Service/IPlaybackService.h
         src/Model/Service/LibraryUseCase.cpp
         src/Model/Service/LibraryUseCase.h
