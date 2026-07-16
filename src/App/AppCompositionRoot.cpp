@@ -6,6 +6,7 @@
 #include "View/MainWindow.h"
 #include "ViewModel/LibraryViewModel.h"
 #include "ViewModel/PlaybackViewModel.h"
+#include "ViewModel/PlaylistCollectionViewModel.h"
 
 #include <QApplication>
 
@@ -23,12 +24,18 @@ int runWidgetsApplication(int argc, char *argv[])
     Model::Service::QtMultimediaPlaybackService playbackService;
     Model::Service::PlaybackUseCase playbackUseCase(playbackService);
     ViewModel::PlaybackViewModel playbackViewModel(playbackUseCase, playbackService);
+    ViewModel::PlaylistCollectionViewModel playlistCollectionViewModel;
 
-    const auto syncPlaybackQueue = [&libraryViewModel, &playbackViewModel]() {
-        playbackViewModel.replaceQueue(libraryViewModel.audioFilesSnapshot());
-    };
-    QObject::connect(&libraryViewModel, &ViewModel::LibraryViewModel::libraryChanged, &playbackViewModel, syncPlaybackQueue);
-    syncPlaybackQueue();
+    QObject::connect(&playlistCollectionViewModel,
+                     &ViewModel::PlaylistCollectionViewModel::playRequested,
+                     &playbackViewModel,
+                     [&playbackViewModel](const QString &,
+                                          const QVector<Model::AudioFile> &songsSnapshot,
+                                          int startIndex) {
+                         playbackViewModel.replaceQueue(songsSnapshot);
+                         playbackViewModel.setCurrentPlaybackIndex(startIndex);
+                         playbackViewModel.playCommand()->execute();
+                     });
 
     View::MainWindow mainWindow(libraryViewModel, playbackViewModel);
 

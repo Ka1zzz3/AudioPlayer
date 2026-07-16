@@ -201,14 +201,6 @@ void MainWindow::bindPlaybackViewModel()
     bindButton(*m_nextButton, m_playbackViewModel.nextCommand());
     bindButton(*m_muteButton, m_playbackViewModel.toggleMuteCommand());
 
-    if (m_songListView->selectionModel() != nullptr) {
-        connect(m_songListView->selectionModel(), &QItemSelectionModel::currentChanged, this, [this](const QModelIndex &current) {
-            if (current.isValid()) {
-                m_playbackViewModel.setCurrentPlaybackIndex(current.row());
-            }
-        });
-    }
-
     connect(&m_playbackViewModel, &ViewModel::PlaybackViewModelProtocol::playbackStateChanged, this, &MainWindow::updatePlaybackState);
     connect(&m_playbackViewModel,
             &ViewModel::PlaybackViewModelProtocol::currentPlaybackIndexChanged,

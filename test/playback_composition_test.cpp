@@ -5,6 +5,7 @@
 #include "Model/Service/PlaybackUseCase.h"
 #include "ViewModel/LibraryViewModel.h"
 #include "ViewModel/PlaybackViewModel.h"
+#include "ViewModel/PlaylistCollectionViewModel.h"
 
 #include <QtTest/QtTest>
 
@@ -26,6 +27,7 @@ using AudioPlayer::Model::Service::PlaybackUseCase;
 using AudioPlayer::ViewModel::LibraryViewModel;
 using AudioPlayer::ViewModel::PlaybackState;
 using AudioPlayer::ViewModel::PlaybackViewModel;
+using AudioPlayer::ViewModel::PlaylistCollectionViewModel;
 
 class CompositionFakePlaybackService final : public IPlaybackService
 {
@@ -44,10 +46,12 @@ public:
     [[nodiscard]] bool seekable() const noexcept override { return false; }
     [[nodiscard]] float volume() const noexcept override { return m_volume; }
     [[nodiscard]] bool muted() const noexcept override { return m_muted; }
+    [[nodiscard]] int setSourceCount() const noexcept { return m_setSourceCount; }
 
 public slots:
     void setSource(QString filePath) override
     {
+        ++m_setSourceCount;
         if (m_source == filePath) {
             return;
         }
@@ -78,6 +82,7 @@ private:
     PlaybackBackendState m_state = PlaybackBackendState::Stopped;
     float m_volume = 1.0F;
     bool m_muted = false;
+    int m_setSourceCount = 0;
 };
 
 class PlaybackCompositionTest : public QObject
@@ -86,8 +91,9 @@ class PlaybackCompositionTest : public QObject
 
 private slots:
     void initTestCase();
-    void scanSynchronizesLibrarySnapshotToPlaybackQueue();
-    void refreshClearsPlaybackWhenCurrentSourceDisappears();
+    void libraryChangesDoNotSynchronizePlaybackQueue();
+    void refreshDoesNotClearPlaybackWhenCurrentSourceDisappears();
+    void explicitPlayRequestReplacesPlaybackQueueAndStartsPlayback();
 };
 
 namespace {
@@ -128,12 +134,18 @@ struct PlaybackCompositionFixture
     CompositionFakePlaybackService playbackService;
     PlaybackUseCase playbackUseCase{playbackService};
     PlaybackViewModel playbackViewModel{playbackUseCase, playbackService};
+    PlaylistCollectionViewModel playlistCollectionViewModel;
 
     PlaybackCompositionFixture()
     {
-        QObject::connect(&libraryViewModel, &LibraryViewModel::libraryChanged, &playbackViewModel, [this]() {
-            playbackViewModel.replaceQueue(libraryViewModel.audioFilesSnapshot());
-        });
+        QObject::connect(&playlistCollectionViewModel,
+                         &PlaylistCollectionViewModel::playRequested,
+                         &playbackViewModel,
+                         [this](const QString &, const QVector<AudioFile> &songsSnapshot, int startIndex) {
+                             playbackViewModel.replaceQueue(songsSnapshot);
+                             playbackViewModel.setCurrentPlaybackIndex(startIndex);
+                             playbackViewModel.playCommand()->execute();
+                         });
     }
 };
 
@@ -146,28 +158,27 @@ void PlaybackCompositionTest::initTestCase()
     qRegisterMetaType<PlaybackBackendError>();
 }
 
-void PlaybackCompositionTest::scanSynchronizesLibrarySnapshotToPlaybackQueue()
+void PlaybackCompositionTest::libraryChangesDoNotSynchronizePlaybackQueue()
 {
     QTemporaryDir temporaryDirectory;
     QVERIFY(temporaryDirectory.isValid());
     const QString scanPath = temporaryDirectory.filePath(QStringLiteral("scan"));
     QVERIFY(QDir().mkpath(scanPath));
-    const QString scannedPath = createFile(QDir(scanPath).filePath(QStringLiteral("Scanned.mp3")));
+    createFile(QDir(scanPath).filePath(QStringLiteral("Scanned.mp3")));
     PlaybackCompositionFixture fixture;
     QSignalSpy libraryChangedSpy(&fixture.libraryViewModel, &LibraryViewModel::libraryChanged);
 
     fixture.libraryViewModel.setScanDirectoryPath(scanPath);
     QVERIFY(fixture.libraryViewModel.scanCommand()->execute());
-    QVERIFY(fixture.playbackViewModel.playCommand()->execute());
+    fixture.playbackViewModel.playCommand()->execute();
 
     QCOMPARE(libraryChangedSpy.count(), 1);
-    QCOMPARE(fixture.playbackViewModel.currentPlaybackIndex(), 0);
-    QCOMPARE(fixture.playbackViewModel.currentPlaybackTitle(), QStringLiteral("Scanned"));
-    QCOMPARE(fixture.playbackService.source(), scannedPath);
-    QCOMPARE(fixture.playbackViewModel.playbackState(), PlaybackState::Playing);
+    QCOMPARE(fixture.playbackViewModel.currentPlaybackIndex(), -1);
+    QCOMPARE(fixture.playbackService.source(), QString());
+    QCOMPARE(fixture.playbackViewModel.playbackState(), PlaybackState::Stopped);
 }
 
-void PlaybackCompositionTest::refreshClearsPlaybackWhenCurrentSourceDisappears()
+void PlaybackCompositionTest::refreshDoesNotClearPlaybackWhenCurrentSourceDisappears()
 {
     QTemporaryDir temporaryDirectory;
     QVERIFY(temporaryDirectory.isValid());
@@ -179,18 +190,42 @@ void PlaybackCompositionTest::refreshClearsPlaybackWhenCurrentSourceDisappears()
     const QString storagePath = savePlayList(temporaryDirectory, playList);
     PlaybackCompositionFixture fixture;
 
-    fixture.libraryViewModel.setStoragePath(storagePath);
-    QVERIFY(fixture.libraryViewModel.loadCommand()->execute());
+    fixture.playbackViewModel.replaceQueue(playList.items());
+    fixture.playbackViewModel.setCurrentPlaybackIndex(0);
     QVERIFY(fixture.playbackViewModel.playCommand()->execute());
     QCOMPARE(fixture.playbackService.source(), disappearingPath);
 
+    fixture.libraryViewModel.setStoragePath(storagePath);
+    QVERIFY(fixture.libraryViewModel.loadCommand()->execute());
     QVERIFY(QFile::remove(disappearingPath));
     QVERIFY(fixture.libraryViewModel.refreshCommand()->execute());
 
     QCOMPARE(fixture.libraryViewModel.count(), 1);
-    QCOMPARE(fixture.playbackViewModel.currentPlaybackIndex(), -1);
-    QCOMPARE(fixture.playbackService.source(), QString());
-    QCOMPARE(fixture.playbackViewModel.playbackState(), PlaybackState::Stopped);
+    QCOMPARE(fixture.playbackViewModel.currentPlaybackIndex(), 0);
+    QCOMPARE(fixture.playbackService.source(), disappearingPath);
+    QCOMPARE(fixture.playbackViewModel.playbackState(), PlaybackState::Playing);
+}
+
+void PlaybackCompositionTest::explicitPlayRequestReplacesPlaybackQueueAndStartsPlayback()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+    const QString firstPath = createAudioFile(temporaryDirectory, QStringLiteral("One.mp3"));
+    const QString secondPath = createAudioFile(temporaryDirectory, QStringLiteral("Two.mp3"));
+    PlaybackCompositionFixture fixture;
+    QVector<AudioFile> songs{
+        AudioFile(firstPath, QStringLiteral("One")),
+        AudioFile(secondPath, QStringLiteral("Two")),
+    };
+    fixture.playlistCollectionViewModel.setCurrentVisibleSongs(songs);
+    fixture.playlistCollectionViewModel.setSelectedSongIndex(1);
+
+    QVERIFY(fixture.playlistCollectionViewModel.playSelectedSongCommand()->execute());
+
+    QCOMPARE(fixture.playbackViewModel.currentPlaybackIndex(), 1);
+    QCOMPARE(fixture.playbackViewModel.currentPlaybackTitle(), QStringLiteral("Two"));
+    QCOMPARE(fixture.playbackService.source(), secondPath);
+    QCOMPARE(fixture.playbackViewModel.playbackState(), PlaybackState::Playing);
 }
 
 QTEST_MAIN(PlaybackCompositionTest)

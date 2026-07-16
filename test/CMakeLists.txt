@@ -183,11 +183,16 @@ qt_add_executable(AudioPlayerPlaybackCompositionTest
     ../src/Common/ViewCommand.cpp
     ../src/Model/AudioFile.cpp
     ../src/Model/FileScanner.cpp
+    ../src/Model/JsonLibraryDocumentRepository.cpp
     ../src/Model/JsonSongRepository.cpp
+    ../src/Model/LibraryDocument.cpp
+    ../src/Model/LibraryPlaylist.cpp
     ../src/Model/PlayList.cpp
     ../src/Model/Service/LibraryUseCase.cpp
     ../src/Model/Service/PlaybackUseCase.cpp
     ../src/Model/Service/PlaybackUseCase.h
+    ../src/Model/Service/PlaylistCollectionUseCase.cpp
+    ../src/Model/Service/PlaylistCollectionUseCase.h
     ../src/Model/Service/IPlaybackService.h
     ../src/Model/Service/PlaybackTypes.h
     ../src/ViewModel/LibraryViewModel.cpp
@@ -197,6 +202,11 @@ qt_add_executable(AudioPlayerPlaybackCompositionTest
     ../src/ViewModel/PlaybackViewModel.cpp
     ../src/ViewModel/PlaybackViewModel.h
     ../src/ViewModel/PlaybackViewModelProtocol.h
+    ../src/ViewModel/PlaylistCollectionViewModel.cpp
+    ../src/ViewModel/PlaylistCollectionViewModel.h
+    ../src/ViewModel/PlaylistCollectionViewModelProtocol.h
+    ../src/ViewModel/PlaylistListModel.cpp
+    ../src/ViewModel/PlaylistListModel.h
     ../src/ViewModel/SongListModel.cpp
     ../src/ViewModel/SongListModel.h
 )
