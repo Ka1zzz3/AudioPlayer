@@ -3,6 +3,7 @@
 #include "Common/ViewCommand.h"
 #include "ViewModel/LibraryViewModelProtocol.h"
 #include "ViewModel/PlaybackViewModelProtocol.h"
+#include "ViewModel/PlaylistCollectionViewModelProtocol.h"
 #include "ViewModel/PlaybackState.h"
 
 #include <QAbstractItemView>
@@ -24,7 +25,7 @@
 namespace AudioPlayer::View {
 
 namespace {
-constexpr auto defaultStoragePath = "library.json";
+constexpr auto defaultStoragePath = "storage/library.json";
 
 QString formatTime(qint64 milliseconds)
 {
@@ -37,10 +38,12 @@ QString formatTime(qint64 milliseconds)
 } // namespace
 
 MainWindow::MainWindow(ViewModel::LibraryViewModelProtocol &libraryViewModel,
+                       ViewModel::PlaylistCollectionViewModelProtocol &playlistViewModel,
                        ViewModel::PlaybackViewModelProtocol &playbackViewModel,
                        QWidget *parent)
     : QMainWindow(parent)
     , m_viewModel(libraryViewModel)
+    , m_playlistViewModel(playlistViewModel)
     , m_playbackViewModel(playbackViewModel)
 {
     buildUi();
@@ -95,6 +98,42 @@ void MainWindow::buildUi()
     mainLayout->addWidget(m_statusLabel);
     mainLayout->addWidget(m_errorLabel);
     mainLayout->addWidget(m_warningsLabel);
+
+    auto *playlistTitleLabel = new QLabel(tr("Playlists"), centralWidget);
+    QFont playlistTitleFont = playlistTitleLabel->font();
+    playlistTitleFont.setBold(true);
+    playlistTitleLabel->setFont(playlistTitleFont);
+    mainLayout->addWidget(playlistTitleLabel);
+
+    auto *playlistLayout = new QHBoxLayout();
+    m_playlistListView = new QListView(centralWidget);
+    m_playlistListView->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    m_playlistListView->setModel(m_playlistViewModel.playlists());
+    playlistLayout->addWidget(m_playlistListView, 1);
+
+    auto *playlistControlsLayout = new QVBoxLayout();
+    m_playlistNameInput = new QLineEdit(centralWidget);
+    m_playlistNameInput->setPlaceholderText(tr("New playlist name"));
+    m_createPlaylistButton = new QPushButton(tr("Create playlist"), centralWidget);
+    m_deletePlaylistButton = new QPushButton(tr("Delete playlist"), centralWidget);
+    m_addSongsToPlaylistButton = new QPushButton(tr("Add visible songs"), centralWidget);
+    m_playSelectedSongButton = new QPushButton(tr("Play selected song"), centralWidget);
+    m_playVisiblePlaylistButton = new QPushButton(tr("Play visible playlist"), centralWidget);
+    playlistControlsLayout->addWidget(m_playlistNameInput);
+    playlistControlsLayout->addWidget(m_createPlaylistButton);
+    playlistControlsLayout->addWidget(m_deletePlaylistButton);
+    playlistControlsLayout->addWidget(m_addSongsToPlaylistButton);
+    playlistControlsLayout->addWidget(m_playSelectedSongButton);
+    playlistControlsLayout->addWidget(m_playVisiblePlaylistButton);
+    playlistControlsLayout->addStretch(1);
+    playlistLayout->addLayout(playlistControlsLayout);
+    mainLayout->addLayout(playlistLayout);
+
+    m_playlistStatusLabel = new QLabel(centralWidget);
+    m_playlistErrorLabel = new QLabel(centralWidget);
+    m_playlistErrorLabel->setStyleSheet(QStringLiteral("color: #a00000;"));
+    mainLayout->addWidget(m_playlistStatusLabel);
+    mainLayout->addWidget(m_playlistErrorLabel);
 
     m_songListView = new QListView(centralWidget);
     m_songListView->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -156,26 +195,20 @@ void MainWindow::buildUi()
 void MainWindow::bindViewModel()
 {
     bindLibraryViewModel();
+    bindPlaylistCollectionViewModel();
     bindPlaybackViewModel();
 }
 
 void MainWindow::bindLibraryViewModel()
 {
-    m_viewModel.setStoragePath(m_storagePathInput->text());
     m_viewModel.setScanDirectoryPath(m_scanDirectoryPathInput->text());
 
-    bindLineEdit(*m_storagePathInput,
-                 &ViewModel::LibraryViewModelProtocol::storagePath,
-                 &ViewModel::LibraryViewModelProtocol::setStoragePath,
-                 &ViewModel::LibraryViewModelProtocol::storagePathChanged);
     bindLineEdit(*m_scanDirectoryPathInput,
                  &ViewModel::LibraryViewModelProtocol::scanDirectoryPath,
                  &ViewModel::LibraryViewModelProtocol::setScanDirectoryPath,
                  &ViewModel::LibraryViewModelProtocol::scanDirectoryPathChanged);
 
     bindButton(*m_scanButton, m_viewModel.scanCommand());
-    bindButton(*m_saveButton, m_viewModel.saveCommand());
-    bindButton(*m_loadButton, m_viewModel.loadCommand());
     bindButton(*m_refreshButton, m_viewModel.refreshCommand());
 
     connect(&m_viewModel, &ViewModel::LibraryViewModelProtocol::countChanged, this, &MainWindow::updateCount);
@@ -192,6 +225,86 @@ void MainWindow::bindLibraryViewModel()
     updateWarnings();
 }
 
+void MainWindow::bindPlaylistCollectionViewModel()
+{
+    m_playlistViewModel.setStoragePath(m_storagePathInput->text());
+
+    connect(m_storagePathInput, &QLineEdit::textChanged, this, [this](const QString &text) {
+        m_playlistViewModel.setStoragePath(text);
+    });
+    connect(&m_playlistViewModel,
+            &ViewModel::PlaylistCollectionViewModelProtocol::storagePathChanged,
+            this,
+            [this]() {
+                if (m_storagePathInput->text() != m_playlistViewModel.storagePath()) {
+                    m_storagePathInput->setText(m_playlistViewModel.storagePath());
+                }
+            });
+
+    connect(m_playlistNameInput, &QLineEdit::textChanged, this, [this](const QString &text) {
+        m_playlistViewModel.setNewPlaylistName(text);
+    });
+    connect(&m_playlistViewModel,
+            &ViewModel::PlaylistCollectionViewModelProtocol::newPlaylistNameChanged,
+            this,
+            [this]() {
+                if (m_playlistNameInput->text() != m_playlistViewModel.newPlaylistName()) {
+                    m_playlistNameInput->setText(m_playlistViewModel.newPlaylistName());
+                }
+            });
+
+    bindButton(*m_loadButton, m_playlistViewModel.loadCommand());
+    bindButton(*m_saveButton, m_playlistViewModel.saveCommand());
+    bindButton(*m_createPlaylistButton, m_playlistViewModel.createPlaylistCommand());
+    bindButton(*m_deletePlaylistButton, m_playlistViewModel.deletePlaylistCommand());
+    bindButton(*m_addSongsToPlaylistButton, m_playlistViewModel.addSongsCommand());
+    bindButton(*m_playSelectedSongButton, m_playlistViewModel.playSelectedSongCommand());
+    bindButton(*m_playVisiblePlaylistButton, m_playlistViewModel.playVisiblePlaylistCommand());
+
+    connect(m_playlistListView->selectionModel(),
+            &QItemSelectionModel::currentChanged,
+            this,
+            [this](const QModelIndex &current) {
+                if (!current.isValid()) {
+                    return;
+                }
+
+                const QString playlistId = current.data(m_playlistViewModel.playlistIdRole()).toString();
+                if (playlistId.isEmpty()) {
+                    return;
+                }
+
+                m_playlistViewModel.setSelectedPlaylistId(playlistId);
+                if (m_playlistViewModel.switchPlaylistCommand() != nullptr) {
+                    m_playlistViewModel.switchPlaylistCommand()->execute();
+                }
+            });
+
+    connect(m_songListView->selectionModel(),
+            &QItemSelectionModel::currentChanged,
+            this,
+            [this](const QModelIndex &current) {
+                m_playlistViewModel.setSelectedSongIndex(current.isValid() ? current.row() : -1);
+            });
+
+    connect(&m_playlistViewModel,
+            &ViewModel::PlaylistCollectionViewModelProtocol::visiblePlaylistChanged,
+            this,
+            &MainWindow::updatePlaylistSelection);
+    connect(&m_playlistViewModel,
+            &ViewModel::PlaylistCollectionViewModelProtocol::statusMessageChanged,
+            this,
+            &MainWindow::updatePlaylistStatusMessage);
+    connect(&m_playlistViewModel,
+            &ViewModel::PlaylistCollectionViewModelProtocol::lastErrorChanged,
+            this,
+            &MainWindow::updatePlaylistLastError);
+
+    updatePlaylistSelection();
+    updatePlaylistStatusMessage();
+    updatePlaylistLastError();
+}
+
 void MainWindow::bindPlaybackViewModel()
 {
     bindButton(*m_playButton, m_playbackViewModel.playCommand());
@@ -202,10 +315,6 @@ void MainWindow::bindPlaybackViewModel()
     bindButton(*m_muteButton, m_playbackViewModel.toggleMuteCommand());
 
     connect(&m_playbackViewModel, &ViewModel::PlaybackViewModelProtocol::playbackStateChanged, this, &MainWindow::updatePlaybackState);
-    connect(&m_playbackViewModel,
-            &ViewModel::PlaybackViewModelProtocol::currentPlaybackIndexChanged,
-            this,
-            &MainWindow::syncPlaybackSelection);
     connect(&m_playbackViewModel,
             &ViewModel::PlaybackViewModelProtocol::currentPlaybackTitleChanged,
             this,
@@ -251,7 +360,6 @@ void MainWindow::bindPlaybackViewModel()
     updatePlaybackMuted();
     updatePlaybackError();
     updatePlaybackStatusMessage();
-    syncPlaybackSelection();
 }
 
 void MainWindow::bindLineEdit(QLineEdit &lineEdit,
@@ -310,6 +418,36 @@ void MainWindow::updateWarnings()
     }
 
     setLabelVisibleText(*m_warningsLabel, lines.join(QLatin1Char('\n')));
+}
+
+void MainWindow::updatePlaylistSelection()
+{
+    if (m_playlistListView->model() == nullptr) {
+        return;
+    }
+
+    const QString visiblePlaylistId = m_playlistViewModel.visiblePlaylistId();
+    for (int row = 0; row < m_playlistListView->model()->rowCount(); ++row) {
+        const QModelIndex index = m_playlistListView->model()->index(row, 0);
+        if (index.data(m_playlistViewModel.playlistIdRole()).toString() == visiblePlaylistId) {
+            if (m_playlistListView->currentIndex() != index) {
+                m_playlistListView->setCurrentIndex(index);
+            }
+            return;
+        }
+    }
+}
+
+void MainWindow::updatePlaylistStatusMessage()
+{
+    const QString status = m_playlistViewModel.statusMessage();
+    setLabelVisibleText(*m_playlistStatusLabel, status.isEmpty() ? QString() : tr("Playlist: %1").arg(status));
+}
+
+void MainWindow::updatePlaylistLastError()
+{
+    const QString error = m_playlistViewModel.lastError();
+    setLabelVisibleText(*m_playlistErrorLabel, error.isEmpty() ? QString() : tr("Playlist error: %1").arg(error));
 }
 
 void MainWindow::updatePlaybackState()

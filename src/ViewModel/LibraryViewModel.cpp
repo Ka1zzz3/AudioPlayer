@@ -109,6 +109,15 @@ QVector<Model::AudioFile> LibraryViewModel::audioFilesSnapshot() const
     return m_songs.playList().items();
 }
 
+void LibraryViewModel::setVisibleSongsProjection(QVector<Model::AudioFile> songs)
+{
+    Model::PlayList playList;
+    for (Model::AudioFile &song : songs) {
+        playList.add(std::move(song));
+    }
+    replacePlayList(std::move(playList));
+}
+
 bool LibraryViewModel::executeLoad()
 {
     ModelService::LibraryWorkflowResult result = m_libraryUseCase->load(m_storagePath);

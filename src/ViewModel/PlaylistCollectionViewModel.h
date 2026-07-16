@@ -40,6 +40,7 @@ public:
                                          QObject *parent = nullptr);
 
     [[nodiscard]] QAbstractItemModel *playlists() noexcept override;
+    [[nodiscard]] int playlistIdRole() const noexcept override;
     [[nodiscard]] const QString &storagePath() const noexcept override;
     void setStoragePath(QString storagePath) override;
     [[nodiscard]] const QString &newPlaylistName() const noexcept override;

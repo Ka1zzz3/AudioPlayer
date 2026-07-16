@@ -21,6 +21,7 @@ public:
     }
 
     [[nodiscard]] virtual QAbstractItemModel *playlists() noexcept = 0;
+    [[nodiscard]] virtual int playlistIdRole() const noexcept = 0;
     [[nodiscard]] virtual const QString &storagePath() const noexcept = 0;
     virtual void setStoragePath(QString storagePath) = 0;
     [[nodiscard]] virtual const QString &newPlaylistName() const noexcept = 0;

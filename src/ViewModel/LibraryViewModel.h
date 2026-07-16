@@ -56,6 +56,7 @@ public:
     // C++-internal coordination seam for App composition; Views still consume
     // the library only through LibraryViewModelProtocol and QAbstractItemModel.
     [[nodiscard]] QVector<Model::AudioFile> audioFilesSnapshot() const;
+    void setVisibleSongsProjection(QVector<Model::AudioFile> songs);
 
 signals:
     void libraryChanged();

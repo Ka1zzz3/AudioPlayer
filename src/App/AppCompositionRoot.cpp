@@ -26,6 +26,20 @@ int runWidgetsApplication(int argc, char *argv[])
     ViewModel::PlaybackViewModel playbackViewModel(playbackUseCase, playbackService);
     ViewModel::PlaylistCollectionViewModel playlistCollectionViewModel;
 
+    QObject::connect(&libraryViewModel,
+                     &ViewModel::LibraryViewModel::libraryChanged,
+                     &playlistCollectionViewModel,
+                     [&libraryViewModel, &playlistCollectionViewModel]() {
+                         playlistCollectionViewModel.setCurrentVisibleSongs(libraryViewModel.audioFilesSnapshot());
+                     });
+
+    QObject::connect(&playlistCollectionViewModel,
+                     &ViewModel::PlaylistCollectionViewModel::currentVisibleSongsChanged,
+                     &libraryViewModel,
+                     [&libraryViewModel](const QVector<Model::AudioFile> &songs) {
+                         libraryViewModel.setVisibleSongsProjection(songs);
+                     });
+
     QObject::connect(&playlistCollectionViewModel,
                      &ViewModel::PlaylistCollectionViewModel::playRequested,
                      &playbackViewModel,
@@ -37,7 +51,7 @@ int runWidgetsApplication(int argc, char *argv[])
                          playbackViewModel.playCommand()->execute();
                      });
 
-    View::MainWindow mainWindow(libraryViewModel, playbackViewModel);
+    View::MainWindow mainWindow(libraryViewModel, playlistCollectionViewModel, playbackViewModel);
 
     mainWindow.show();
     return application.exec();

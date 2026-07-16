@@ -1,5 +1,7 @@
 #include "ViewModel/PlaylistCollectionViewModel.h"
 
+#include "ViewModel/PlaylistListModel.h"
+
 #include "Model/JsonLibraryDocumentRepository.h"
 
 #include <memory>
@@ -45,6 +47,11 @@ PlaylistCollectionViewModel::PlaylistCollectionViewModel(
 QAbstractItemModel *PlaylistCollectionViewModel::playlists() noexcept
 {
     return &m_playlists;
+}
+
+int PlaylistCollectionViewModel::playlistIdRole() const noexcept
+{
+    return PlaylistListModel::IdRole;
 }
 
 const QString &PlaylistCollectionViewModel::storagePath() const noexcept
@@ -303,6 +310,10 @@ void PlaylistCollectionViewModel::setDocument(Model::LibraryDocument document)
 {
     const QString previousVisiblePlaylistId = m_document.visiblePlaylistId();
     const int previousPlaylistCount = m_document.playlistCount();
+    const Model::LibraryPlaylist *previousVisiblePlaylist = m_document.visiblePlaylist();
+    const QVector<Model::AudioFile> previousVisibleSongs = previousVisiblePlaylist == nullptr
+                                                            ? QVector<Model::AudioFile>{}
+                                                            : previousVisiblePlaylist->songs();
     m_document = std::move(document);
     m_playlists.setPlaylists(m_document.playlists());
     if (m_selectedPlaylistId.isEmpty() || !m_document.containsPlaylistId(m_selectedPlaylistId)) {
@@ -311,8 +322,14 @@ void PlaylistCollectionViewModel::setDocument(Model::LibraryDocument document)
     if (previousPlaylistCount != m_document.playlistCount()) {
         emit playlistCountChanged();
     }
+    const Model::LibraryPlaylist *currentVisiblePlaylist = m_document.visiblePlaylist();
+    const QVector<Model::AudioFile> currentVisibleSongs = currentVisiblePlaylist == nullptr
+                                                           ? QVector<Model::AudioFile>{}
+                                                           : currentVisiblePlaylist->songs();
     if (previousVisiblePlaylistId != m_document.visiblePlaylistId()) {
         emit visiblePlaylistChanged();
+        emitVisibleSongsChanged();
+    } else if (previousVisibleSongs != currentVisibleSongs) {
         emitVisibleSongsChanged();
     }
 }
