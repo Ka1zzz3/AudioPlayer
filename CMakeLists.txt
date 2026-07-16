@@ -78,6 +78,8 @@ if(AUDIOPLAYER_BUILD_APP)
         src/Model/Service/NullPlaybackService.cpp
         src/Model/Service/NullPlaybackService.h
         src/Model/Service/PlaybackTypes.h
+        src/Model/Service/PlaylistCollectionUseCase.cpp
+        src/Model/Service/PlaylistCollectionUseCase.h
         src/Model/Service/PlaybackUseCase.cpp
         src/Model/Service/PlaybackUseCase.h
         src/Model/Service/QtMultimediaPlaybackService.cpp
