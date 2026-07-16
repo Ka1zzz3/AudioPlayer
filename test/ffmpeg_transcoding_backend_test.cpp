@@ -22,6 +22,7 @@ private slots:
     void progressParserMapsOutTimeToPercentAndEndToComplete();
     void processErrorSummaryIsUserReadable();
     void unavailableBackendFailsWithoutStartingProcess();
+    void missingConfiguredToolIsReportedAsUnavailable();
     void missingInputFailsWithoutStartingProcess();
     void cancelRunningProcessEmitsCanceledInsteadOfFailed();
 };
@@ -127,13 +128,44 @@ void FfmpegTranscodingBackendTest::unavailableBackendFailsWithoutStartingProcess
     QCOMPARE(error.message, QStringLiteral("Transcoding backend unavailable"));
 }
 
+void FfmpegTranscodingBackendTest::missingConfiguredToolIsReportedAsUnavailable()
+{
+    FfmpegTranscodingBackend backend(QStringLiteral("/definitely/missing/ffmpeg"),
+                                     QStringLiteral("/definitely/missing/ffprobe"));
+    QSignalSpy failureSpy(&backend, &FfmpegTranscodingBackend::transcodeFailed);
+
+    QVERIFY(!backend.available());
+    QVERIFY(backend.unavailableReason().contains(QStringLiteral("ffmpeg executable was not found")));
+
+    backend.startTranscode(TranscodingRequest{QStringLiteral("task-1"),
+                                              QStringLiteral("/missing/in.flac"),
+                                              QStringLiteral("/out/in.mp3"),
+                                              ProcessingOutputFormat::Mp3});
+
+    QCOMPARE(failureSpy.count(), 1);
+    const auto error = failureSpy.takeFirst().at(0).value<TranscodingError>();
+    QCOMPARE(error.message, QStringLiteral("Transcoding backend unavailable"));
+    QVERIFY(error.technicalDetails.contains(QStringLiteral("ffmpeg executable was not found")));
+}
+
 void FfmpegTranscodingBackendTest::missingInputFailsWithoutStartingProcess()
 {
-    FfmpegTranscodingBackend backend(QStringLiteral("ffmpeg"), QStringLiteral("ffprobe"));
+    QTemporaryDir temporaryDir;
+    QVERIFY(temporaryDir.isValid());
+    const QString ffprobePath = writeExecutable(temporaryDir,
+                                                QStringLiteral("ffprobe-fake.sh"),
+                                                "#!/bin/sh\n"
+                                                "printf '{\"format\":{\"duration\":\"10.000\"}}'\n");
+    const QString ffmpegPath = writeExecutable(temporaryDir,
+                                               QStringLiteral("ffmpeg-fake.sh"),
+                                               "#!/bin/sh\n"
+                                               "exit 0\n");
+    FfmpegTranscodingBackend backend(ffmpegPath, ffprobePath);
     QSignalSpy failureSpy(&backend, &FfmpegTranscodingBackend::transcodeFailed);
 
     backend.startTranscode(TranscodingRequest{QStringLiteral("task-1"), QStringLiteral("/definitely/missing.flac"), QStringLiteral("/out/missing.mp3"), ProcessingOutputFormat::Mp3});
 
+    QVERIFY(backend.available());
     QVERIFY(!backend.busy());
     QCOMPARE(failureSpy.count(), 1);
     const auto error = failureSpy.takeFirst().at(0).value<TranscodingError>();

@@ -3,6 +3,7 @@
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QStandardPaths>
 
 #include <algorithm>
 
@@ -23,6 +24,21 @@ QString codecFor(AudioPlayer::Model::ProcessingOutputFormat format)
     return {};
 }
 
+bool executableAvailable(const QString &program)
+{
+    const QString trimmed = program.trimmed();
+    if (trimmed.isEmpty()) {
+        return false;
+    }
+
+    const QFileInfo programInfo(trimmed);
+    if (programInfo.isAbsolute() || trimmed.contains(QLatin1Char('/'))) {
+        return programInfo.exists() && programInfo.isExecutable();
+    }
+
+    return !QStandardPaths::findExecutable(trimmed).isEmpty();
+}
+
 } // namespace
 
 FfmpegTranscodingBackend::FfmpegTranscodingBackend(QString ffmpegProgram, QString ffprobeProgram, QObject *parent)
@@ -34,6 +50,10 @@ FfmpegTranscodingBackend::FfmpegTranscodingBackend(QString ffmpegProgram, QStrin
         m_unavailableReason = QStringLiteral("ffmpeg executable was not configured.");
     } else if (m_ffprobeProgram.trimmed().isEmpty()) {
         m_unavailableReason = QStringLiteral("ffprobe executable was not configured.");
+    } else if (!executableAvailable(m_ffmpegProgram)) {
+        m_unavailableReason = QStringLiteral("ffmpeg executable was not found: %1").arg(m_ffmpegProgram);
+    } else if (!executableAvailable(m_ffprobeProgram)) {
+        m_unavailableReason = QStringLiteral("ffprobe executable was not found: %1").arg(m_ffprobeProgram);
     }
 }
 
