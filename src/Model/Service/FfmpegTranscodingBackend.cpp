@@ -266,10 +266,11 @@ void FfmpegTranscodingBackend::handleFinished(int exitCode, QProcess::ExitStatus
     const QString taskId = m_currentRequest.taskId;
     const QString outputPath = m_currentRequest.outputFilePath;
     const QString technicalDetails = QString::fromUtf8(m_stderrBuffer).trimmed();
+    const bool wasCanceled = m_cancelRequested;
 
     clearProcess();
 
-    if (m_cancelRequested) {
+    if (wasCanceled) {
         emit transcodeCanceled(taskId);
         return;
     }
@@ -301,8 +302,9 @@ void FfmpegTranscodingBackend::failCurrent(QString message, QString technicalDet
 void FfmpegTranscodingBackend::clearProcess()
 {
     if (m_process) {
-        m_process->disconnect(this);
-        m_process.reset();
+        QProcess *process = m_process.release();
+        process->disconnect(this);
+        process->deleteLater();
     }
     m_currentRequest = {};
     m_stdoutBuffer.clear();
