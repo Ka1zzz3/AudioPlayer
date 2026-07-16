@@ -66,9 +66,11 @@ private slots:
     void initTestCase();
     void enqueueCommandCreatesTasksAndUpdatesStatus();
     void taskListModelExposesTaskRoles();
+    void taskListModelDisplayRoleSummarizesWidgetsStatus();
     void cancelSelectedCommandCancelsSelectedTask();
     void cancelAllCommandClearsActiveFlag();
     void invalidFormatIsRejectedWithVisibleError();
+    void integrationWarningIsVisibleAsProcessingError();
 };
 
 void ProcessingViewModelTest::initTestCase()
@@ -119,6 +121,26 @@ void ProcessingViewModelTest::taskListModelExposesTaskRoles()
     QCOMPARE(viewModel.tasks()->data(index, ProcessingTaskListModel::ProgressPercentRole).toInt(), 0);
 }
 
+void ProcessingViewModelTest::taskListModelDisplayRoleSummarizesWidgetsStatus()
+{
+    auto backend = std::make_unique<ViewModelFakeTranscodingBackend>();
+    auto *backendRaw = backend.get();
+    auto useCase = std::make_shared<ProcessingUseCase>(backend.release());
+    ProcessingViewModel viewModel(useCase);
+
+    viewModel.setInputFilePaths({QStringLiteral("/music/a.flac")});
+    viewModel.setOutputDirectory(QStringLiteral("/out"));
+    QVERIFY(viewModel.enqueueCommand()->execute());
+    backendRaw->emitProgress(42);
+
+    const QModelIndex index = viewModel.tasks()->index(0, 0);
+    const QString displayText = viewModel.tasks()->data(index, Qt::DisplayRole).toString();
+    QVERIFY(displayText.contains(QStringLiteral("a.flac")));
+    QVERIFY(displayText.contains(QStringLiteral("/out/a.mp3")));
+    QVERIFY(displayText.contains(QStringLiteral("running")));
+    QVERIFY(displayText.contains(QStringLiteral("42%")));
+}
+
 void ProcessingViewModelTest::cancelSelectedCommandCancelsSelectedTask()
 {
     auto backend = std::make_unique<ViewModelFakeTranscodingBackend>();
@@ -164,6 +186,19 @@ void ProcessingViewModelTest::invalidFormatIsRejectedWithVisibleError()
 
     QCOMPARE(viewModel.outputFormat(), QStringLiteral("mp3"));
     QCOMPARE(viewModel.lastError(), QStringLiteral("Unsupported output format."));
+    QCOMPARE(errorSpy.count(), 1);
+}
+
+void ProcessingViewModelTest::integrationWarningIsVisibleAsProcessingError()
+{
+    auto backend = std::make_unique<ViewModelFakeTranscodingBackend>();
+    auto useCase = std::make_shared<ProcessingUseCase>(backend.release());
+    ProcessingViewModel viewModel(useCase);
+    QSignalSpy errorSpy(&viewModel, &ProcessingViewModel::lastErrorChanged);
+
+    viewModel.reportIntegrationWarning(QStringLiteral("Transcode succeeded, but adding to playlist failed."));
+
+    QCOMPARE(viewModel.lastError(), QStringLiteral("Transcode succeeded, but adding to playlist failed."));
     QCOMPARE(errorSpy.count(), 1);
 }
 

@@ -45,6 +45,8 @@ public:
     [[nodiscard]] Common::ViewCommand *cancelSelectedCommand() noexcept override;
     [[nodiscard]] Common::ViewCommand *cancelAllCommand() noexcept override;
 
+    void reportIntegrationWarning(QString warning);
+
 private:
     bool executeEnqueue();
     bool executeCancelSelected();

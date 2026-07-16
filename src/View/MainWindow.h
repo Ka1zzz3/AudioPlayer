@@ -5,6 +5,8 @@
 #include <QStringList>
 
 class QLabel;
+class QComboBox;
+class QCloseEvent;
 class QLineEdit;
 class QListView;
 class QPushButton;
@@ -19,6 +21,7 @@ namespace AudioPlayer::ViewModel {
 class LibraryViewModelProtocol;
 class PlaybackViewModelProtocol;
 class PlaylistCollectionViewModelProtocol;
+class ProcessingViewModelProtocol;
 enum class PlaybackState;
 }
 
@@ -30,7 +33,11 @@ public:
     MainWindow(ViewModel::LibraryViewModelProtocol &libraryViewModel,
                ViewModel::PlaylistCollectionViewModelProtocol &playlistViewModel,
                ViewModel::PlaybackViewModelProtocol &playbackViewModel,
+               ViewModel::ProcessingViewModelProtocol &processingViewModel,
                QWidget *parent = nullptr);
+
+protected:
+    void closeEvent(QCloseEvent *event) override;
 
 private:
     void buildUi();
@@ -38,6 +45,7 @@ private:
     void bindLibraryViewModel();
     void bindPlaylistCollectionViewModel();
     void bindPlaybackViewModel();
+    void bindProcessingViewModel();
     void bindLineEdit(QLineEdit &lineEdit,
                       const QString &(ViewModel::LibraryViewModelProtocol::*getter)() const noexcept,
                       void (ViewModel::LibraryViewModelProtocol::*setter)(QString),
@@ -59,6 +67,12 @@ private:
     void updatePlaybackMuted();
     void updatePlaybackError();
     void updatePlaybackStatusMessage();
+    void updateProcessingInputSummary();
+    void updateProcessingOutputDirectory();
+    void updateProcessingOutputFormat();
+    void updateProcessingActiveState();
+    void updateProcessingStatusMessage();
+    void updateProcessingLastError();
     void setLabelVisibleText(QLabel &label, const QString &text);
     [[nodiscard]] QString playbackStateText() const;
     [[nodiscard]] static int sliderValueFromMs(qint64 valueMs);
@@ -66,6 +80,7 @@ private:
     ViewModel::LibraryViewModelProtocol &m_viewModel;
     ViewModel::PlaylistCollectionViewModelProtocol &m_playlistViewModel;
     ViewModel::PlaybackViewModelProtocol &m_playbackViewModel;
+    ViewModel::ProcessingViewModelProtocol &m_processingViewModel;
     QLineEdit *m_storagePathInput = nullptr;
     QLineEdit *m_scanDirectoryPathInput = nullptr;
     QLineEdit *m_playlistNameInput = nullptr;
@@ -84,8 +99,14 @@ private:
     QPushButton *m_previousButton = nullptr;
     QPushButton *m_nextButton = nullptr;
     QPushButton *m_muteButton = nullptr;
+    QPushButton *m_selectProcessingInputsButton = nullptr;
+    QPushButton *m_selectProcessingOutputDirectoryButton = nullptr;
+    QPushButton *m_enqueueProcessingButton = nullptr;
+    QPushButton *m_cancelSelectedProcessingButton = nullptr;
+    QPushButton *m_cancelAllProcessingButton = nullptr;
     QSlider *m_progressSlider = nullptr;
     QSlider *m_volumeSlider = nullptr;
+    QComboBox *m_processingFormatComboBox = nullptr;
     QLabel *m_countLabel = nullptr;
     QLabel *m_statusLabel = nullptr;
     QLabel *m_errorLabel = nullptr;
@@ -97,8 +118,13 @@ private:
     QLabel *m_playbackPositionLabel = nullptr;
     QLabel *m_playbackErrorLabel = nullptr;
     QLabel *m_playbackStatusLabel = nullptr;
+    QLabel *m_processingInputSummaryLabel = nullptr;
+    QLabel *m_processingOutputDirectoryLabel = nullptr;
+    QLabel *m_processingStatusLabel = nullptr;
+    QLabel *m_processingErrorLabel = nullptr;
     QListView *m_playlistListView = nullptr;
     QListView *m_songListView = nullptr;
+    QListView *m_processingTaskListView = nullptr;
     bool m_userSeeking = false;
     bool m_syncingVolume = false;
 };

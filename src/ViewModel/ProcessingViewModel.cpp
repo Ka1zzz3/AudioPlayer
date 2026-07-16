@@ -120,6 +120,11 @@ Common::ViewCommand *ProcessingViewModel::cancelAllCommand() noexcept
     return &m_cancelAllCommand;
 }
 
+void ProcessingViewModel::reportIntegrationWarning(QString warning)
+{
+    setLastError(std::move(warning));
+}
+
 bool ProcessingViewModel::executeEnqueue()
 {
     const auto result = m_useCase->enqueueBatch(Model::Service::ProcessingEnqueueRequest{m_inputFilePaths,

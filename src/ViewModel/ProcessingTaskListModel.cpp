@@ -1,6 +1,29 @@
 #include "ViewModel/ProcessingTaskListModel.h"
 
+#include <QFileInfo>
+
 namespace AudioPlayer::ViewModel {
+
+namespace {
+
+QString displayTextFor(const Model::ProcessingTask &task)
+{
+    const QFileInfo inputInfo(task.inputFilePath());
+    QString progress = task.progressIndeterminate()
+        ? QStringLiteral("indeterminate")
+        : QStringLiteral("%1%").arg(task.progressPercent());
+    if (!task.errorMessage().isEmpty()) {
+        progress = task.errorMessage();
+    }
+
+    return QStringLiteral("%1 -> %2 [%3, %4]")
+        .arg(inputInfo.fileName().isEmpty() ? task.inputFilePath() : inputInfo.fileName(),
+             task.outputFilePath(),
+             Model::toString(task.status()),
+             progress);
+}
+
+} // namespace
 
 ProcessingTaskListModel::ProcessingTaskListModel(QObject *parent)
     : QAbstractListModel(parent)
@@ -24,6 +47,7 @@ QVariant ProcessingTaskListModel::data(const QModelIndex &index, int role) const
     const auto &task = m_tasks.at(index.row());
     switch (role) {
     case Qt::DisplayRole:
+        return displayTextFor(task);
     case IdRole:
         return task.id();
     case TypeRole:

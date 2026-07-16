@@ -4,15 +4,20 @@
 #include "ViewModel/LibraryViewModelProtocol.h"
 #include "ViewModel/PlaybackViewModelProtocol.h"
 #include "ViewModel/PlaylistCollectionViewModelProtocol.h"
+#include "ViewModel/ProcessingViewModelProtocol.h"
 #include "ViewModel/PlaybackState.h"
 
 #include <QAbstractItemView>
 #include <QAbstractItemModel>
 #include <QBoxLayout>
+#include <QCloseEvent>
+#include <QComboBox>
+#include <QFileDialog>
 #include <QFormLayout>
 #include <QItemSelectionModel>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMessageBox>
 #include <QListView>
 #include <QPushButton>
 #include <QSignalBlocker>
@@ -40,14 +45,39 @@ QString formatTime(qint64 milliseconds)
 MainWindow::MainWindow(ViewModel::LibraryViewModelProtocol &libraryViewModel,
                        ViewModel::PlaylistCollectionViewModelProtocol &playlistViewModel,
                        ViewModel::PlaybackViewModelProtocol &playbackViewModel,
+                       ViewModel::ProcessingViewModelProtocol &processingViewModel,
                        QWidget *parent)
     : QMainWindow(parent)
     , m_viewModel(libraryViewModel)
     , m_playlistViewModel(playlistViewModel)
     , m_playbackViewModel(playbackViewModel)
+    , m_processingViewModel(processingViewModel)
 {
     buildUi();
     bindViewModel();
+}
+
+void MainWindow::closeEvent(QCloseEvent *event)
+{
+    if (!m_processingViewModel.hasPendingOrRunningTasks()) {
+        QMainWindow::closeEvent(event);
+        return;
+    }
+
+    const auto answer = QMessageBox::question(this,
+                                              tr("Processing tasks are active"),
+                                              tr("Pending or running transcoding tasks will be canceled if you exit. Exit now?"),
+                                              QMessageBox::Yes | QMessageBox::No,
+                                              QMessageBox::No);
+    if (answer == QMessageBox::Yes) {
+        if (m_processingViewModel.cancelAllCommand() != nullptr) {
+            m_processingViewModel.cancelAllCommand()->execute();
+        }
+        QMainWindow::closeEvent(event);
+        return;
+    }
+
+    event->ignore();
 }
 
 void MainWindow::buildUi()
@@ -189,6 +219,43 @@ void MainWindow::buildUi()
     mainLayout->addWidget(m_playbackStatusLabel);
     mainLayout->addWidget(m_playbackErrorLabel);
 
+    auto *processingTitleLabel = new QLabel(tr("Transcoding"), centralWidget);
+    QFont processingTitleFont = processingTitleLabel->font();
+    processingTitleFont.setBold(true);
+    processingTitleLabel->setFont(processingTitleFont);
+    mainLayout->addWidget(processingTitleLabel);
+
+    auto *processingControlsLayout = new QHBoxLayout();
+    m_selectProcessingInputsButton = new QPushButton(tr("Select input files"), centralWidget);
+    m_selectProcessingOutputDirectoryButton = new QPushButton(tr("Select output directory"), centralWidget);
+    m_processingFormatComboBox = new QComboBox(centralWidget);
+    m_processingFormatComboBox->addItems({QStringLiteral("mp3"), QStringLiteral("wav"), QStringLiteral("flac")});
+    m_enqueueProcessingButton = new QPushButton(tr("Enqueue transcode"), centralWidget);
+    m_cancelSelectedProcessingButton = new QPushButton(tr("Cancel selected"), centralWidget);
+    m_cancelAllProcessingButton = new QPushButton(tr("Cancel all"), centralWidget);
+    processingControlsLayout->addWidget(m_selectProcessingInputsButton);
+    processingControlsLayout->addWidget(m_selectProcessingOutputDirectoryButton);
+    processingControlsLayout->addWidget(m_processingFormatComboBox);
+    processingControlsLayout->addWidget(m_enqueueProcessingButton);
+    processingControlsLayout->addWidget(m_cancelSelectedProcessingButton);
+    processingControlsLayout->addWidget(m_cancelAllProcessingButton);
+    mainLayout->addLayout(processingControlsLayout);
+
+    m_processingInputSummaryLabel = new QLabel(centralWidget);
+    m_processingOutputDirectoryLabel = new QLabel(centralWidget);
+    m_processingStatusLabel = new QLabel(centralWidget);
+    m_processingErrorLabel = new QLabel(centralWidget);
+    m_processingErrorLabel->setStyleSheet(QStringLiteral("color: #a00000;"));
+    mainLayout->addWidget(m_processingInputSummaryLabel);
+    mainLayout->addWidget(m_processingOutputDirectoryLabel);
+    mainLayout->addWidget(m_processingStatusLabel);
+    mainLayout->addWidget(m_processingErrorLabel);
+
+    m_processingTaskListView = new QListView(centralWidget);
+    m_processingTaskListView->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    m_processingTaskListView->setModel(m_processingViewModel.tasks());
+    mainLayout->addWidget(m_processingTaskListView, 1);
+
     setCentralWidget(centralWidget);
 }
 
@@ -197,6 +264,7 @@ void MainWindow::bindViewModel()
     bindLibraryViewModel();
     bindPlaylistCollectionViewModel();
     bindPlaybackViewModel();
+    bindProcessingViewModel();
 }
 
 void MainWindow::bindLibraryViewModel()
@@ -362,6 +430,67 @@ void MainWindow::bindPlaybackViewModel()
     updatePlaybackStatusMessage();
 }
 
+void MainWindow::bindProcessingViewModel()
+{
+    bindButton(*m_enqueueProcessingButton, m_processingViewModel.enqueueCommand());
+    bindButton(*m_cancelSelectedProcessingButton, m_processingViewModel.cancelSelectedCommand());
+    bindButton(*m_cancelAllProcessingButton, m_processingViewModel.cancelAllCommand());
+
+    connect(m_selectProcessingInputsButton, &QPushButton::clicked, this, [this]() {
+        const QStringList files = QFileDialog::getOpenFileNames(this, tr("Select audio files to transcode"));
+        if (!files.isEmpty()) {
+            m_processingViewModel.setInputFilePaths(files);
+        }
+    });
+    connect(m_selectProcessingOutputDirectoryButton, &QPushButton::clicked, this, [this]() {
+        const QString directory = QFileDialog::getExistingDirectory(this, tr("Select transcode output directory"));
+        if (!directory.isEmpty()) {
+            m_processingViewModel.setOutputDirectory(directory);
+        }
+    });
+    connect(m_processingFormatComboBox, &QComboBox::currentTextChanged, this, [this](const QString &format) {
+        m_processingViewModel.setOutputFormat(format);
+    });
+    connect(m_processingTaskListView->selectionModel(),
+            &QItemSelectionModel::currentChanged,
+            this,
+            [this](const QModelIndex &current) {
+                m_processingViewModel.setSelectedTaskRow(current.isValid() ? current.row() : -1);
+            });
+
+    connect(&m_processingViewModel,
+            &ViewModel::ProcessingViewModelProtocol::inputFilePathsChanged,
+            this,
+            &MainWindow::updateProcessingInputSummary);
+    connect(&m_processingViewModel,
+            &ViewModel::ProcessingViewModelProtocol::outputDirectoryChanged,
+            this,
+            &MainWindow::updateProcessingOutputDirectory);
+    connect(&m_processingViewModel,
+            &ViewModel::ProcessingViewModelProtocol::outputFormatChanged,
+            this,
+            &MainWindow::updateProcessingOutputFormat);
+    connect(&m_processingViewModel,
+            &ViewModel::ProcessingViewModelProtocol::hasPendingOrRunningTasksChanged,
+            this,
+            &MainWindow::updateProcessingActiveState);
+    connect(&m_processingViewModel,
+            &ViewModel::ProcessingViewModelProtocol::statusMessageChanged,
+            this,
+            &MainWindow::updateProcessingStatusMessage);
+    connect(&m_processingViewModel,
+            &ViewModel::ProcessingViewModelProtocol::lastErrorChanged,
+            this,
+            &MainWindow::updateProcessingLastError);
+
+    updateProcessingInputSummary();
+    updateProcessingOutputDirectory();
+    updateProcessingOutputFormat();
+    updateProcessingActiveState();
+    updateProcessingStatusMessage();
+    updateProcessingLastError();
+}
+
 void MainWindow::bindLineEdit(QLineEdit &lineEdit,
                               const QString &(ViewModel::LibraryViewModelProtocol::*getter)() const noexcept,
                               void (ViewModel::LibraryViewModelProtocol::*setter)(QString),
@@ -506,6 +635,48 @@ void MainWindow::updatePlaybackError()
 void MainWindow::updatePlaybackStatusMessage()
 {
     setLabelVisibleText(*m_playbackStatusLabel, m_playbackViewModel.statusMessage());
+}
+
+void MainWindow::updateProcessingInputSummary()
+{
+    const QStringList files = m_processingViewModel.inputFilePaths();
+    setLabelVisibleText(*m_processingInputSummaryLabel,
+                        files.isEmpty() ? QString() : tr("Transcode inputs: %n file(s)", nullptr, files.size()));
+}
+
+void MainWindow::updateProcessingOutputDirectory()
+{
+    const QString directory = m_processingViewModel.outputDirectory();
+    setLabelVisibleText(*m_processingOutputDirectoryLabel,
+                        directory.isEmpty() ? QString() : tr("Transcode output: %1").arg(directory));
+}
+
+void MainWindow::updateProcessingOutputFormat()
+{
+    const QString format = m_processingViewModel.outputFormat();
+    if (m_processingFormatComboBox->currentText() != format) {
+        const int index = m_processingFormatComboBox->findText(format);
+        if (index >= 0) {
+            m_processingFormatComboBox->setCurrentIndex(index);
+        }
+    }
+}
+
+void MainWindow::updateProcessingActiveState()
+{
+    m_cancelAllProcessingButton->setEnabled(m_processingViewModel.hasPendingOrRunningTasks());
+}
+
+void MainWindow::updateProcessingStatusMessage()
+{
+    const QString status = m_processingViewModel.statusMessage();
+    setLabelVisibleText(*m_processingStatusLabel, status.isEmpty() ? QString() : tr("Processing: %1").arg(status));
+}
+
+void MainWindow::updateProcessingLastError()
+{
+    const QString error = m_processingViewModel.lastError();
+    setLabelVisibleText(*m_processingErrorLabel, error.isEmpty() ? QString() : tr("Processing error: %1").arg(error));
 }
 
 void MainWindow::setLabelVisibleText(QLabel &label, const QString &text)
