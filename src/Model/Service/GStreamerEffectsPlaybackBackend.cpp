@@ -1,6 +1,6 @@
 #include "Model/Service/GStreamerEffectsPlaybackBackend.h"
 
-#include <QUrl>
+#include <QFile>
 
 #include <algorithm>
 #include <array>
@@ -34,6 +34,22 @@ qint64 toMs(gint64 gstTime)
         return 0;
     }
     return static_cast<qint64>(gstTime / GST_MSECOND);
+}
+
+QString filePathToGStreamerUri(const QString &filePath)
+{
+    if (filePath.isEmpty()) {
+        return {};
+    }
+
+    gchar *uri = gst_filename_to_uri(QFile::encodeName(filePath).constData(), nullptr);
+    if (uri == nullptr) {
+        return {};
+    }
+
+    const QString result = QString::fromUtf8(uri);
+    g_free(uri);
+    return result;
 }
 
 GstElement *makeElement(const char *factoryName, const char *name)
@@ -130,7 +146,7 @@ void GStreamerEffectsBackendCore::setSource(QString filePath)
 
     if (m_pipeline != nullptr) {
         gst_element_set_state(m_pipeline, GST_STATE_READY);
-        const QString uri = m_source.isEmpty() ? QString() : QUrl::fromLocalFile(m_source).toString();
+        const QString uri = filePathToGStreamerUri(m_source);
         g_object_set(m_pipeline, "uri", uri.toUtf8().constData(), nullptr);
     }
 

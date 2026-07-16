@@ -35,14 +35,14 @@ void GStreamerEffectsBackendTest::adaptersExposeSharedPlaybackAndEffectsState()
     QSignalSpy rateSpy(&effects, &GStreamerAudioEffectsService::playbackRateChanged);
     QSignalSpy eqSpy(&effects, &GStreamerAudioEffectsService::equalizerSettingsChanged);
 
-    playback.setSource(QStringLiteral("/tmp/song.mp3"));
+    playback.setSource(QStringLiteral("/tmp/David Tao - 愛, 很簡單.mp3"));
     playback.setVolume(0.25F);
     playback.setMuted(true);
     effects.setPlaybackRate(1.25);
     effects.setEqualizerEnabled(true);
     effects.applyEqualizerPreset(EqualizerPreset::BassBoost);
 
-    QCOMPARE(playback.source(), QStringLiteral("/tmp/song.mp3"));
+    QCOMPARE(playback.source(), QStringLiteral("/tmp/David Tao - 愛, 很簡單.mp3"));
     QCOMPARE(sourceSpy.count(), 1);
     QCOMPARE(playback.volume(), 0.25F);
     QVERIFY(playback.muted());
