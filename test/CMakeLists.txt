@@ -110,6 +110,31 @@ target_link_libraries(AudioPlayerAudioEffectsUseCaseTest PRIVATE
 
 add_test(NAME AudioPlayerAudioEffectsUseCaseTest COMMAND AudioPlayerAudioEffectsUseCaseTest)
 
+qt_add_executable(AudioPlayerAudioEffectsViewModelTest
+    audio_effects_viewmodel_test.cpp
+    ../src/Common/ViewCommand.cpp
+    ../src/Common/ViewCommand.h
+    ../src/Model/Service/AudioEffectsTypes.cpp
+    ../src/Model/Service/AudioEffectsTypes.h
+    ../src/Model/Service/AudioEffectsUseCase.cpp
+    ../src/Model/Service/AudioEffectsUseCase.h
+    ../src/Model/Service/IAudioEffectsService.h
+    ../src/ViewModel/AudioEffectsViewModel.cpp
+    ../src/ViewModel/AudioEffectsViewModel.h
+    ../src/ViewModel/AudioEffectsViewModelProtocol.h
+)
+
+target_include_directories(AudioPlayerAudioEffectsViewModelTest PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/../src"
+)
+
+target_link_libraries(AudioPlayerAudioEffectsViewModelTest PRIVATE
+    Qt6::Core
+    Qt6::Test
+)
+
+add_test(NAME AudioPlayerAudioEffectsViewModelTest COMMAND AudioPlayerAudioEffectsViewModelTest)
+
 qt_add_executable(AudioPlayerJsonLibraryDocumentRepositoryTest
     json_library_document_repository_test.cpp
     ../src/Model/AudioFile.cpp

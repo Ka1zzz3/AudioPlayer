@@ -92,6 +92,9 @@ if(AUDIOPLAYER_BUILD_APP)
         src/Model/Service/AudioEffectsUseCase.cpp
         src/Model/Service/AudioEffectsUseCase.h
         src/Model/Service/IAudioEffectsService.h
+        src/ViewModel/AudioEffectsViewModel.cpp
+        src/ViewModel/AudioEffectsViewModel.h
+        src/ViewModel/AudioEffectsViewModelProtocol.h
         src/Model/Service/IPlaybackService.h
         src/Model/Service/ITranscodingBackend.h
         src/Model/Service/FfmpegTranscodingBackend.cpp
