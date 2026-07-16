@@ -78,6 +78,8 @@ if(AUDIOPLAYER_BUILD_APP)
         src/Model/ProcessingTypes.h
         src/Model/Service/IPlaybackService.h
         src/Model/Service/ITranscodingBackend.h
+        src/Model/Service/FfmpegTranscodingBackend.cpp
+        src/Model/Service/FfmpegTranscodingBackend.h
         src/Model/Service/LibraryUseCase.cpp
         src/Model/Service/LibraryUseCase.h
         src/Model/Service/NullPlaybackService.cpp
