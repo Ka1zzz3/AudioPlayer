@@ -153,6 +153,25 @@ target_link_libraries(AudioPlayerPlaybackServiceContractTest PRIVATE
 
 add_test(NAME AudioPlayerPlaybackServiceContractTest COMMAND AudioPlayerPlaybackServiceContractTest)
 
+
+qt_add_executable(AudioPlayerTranscodingBackendContractTest
+    transcoding_backend_contract_test.cpp
+    ../src/Model/ProcessingTypes.cpp
+    ../src/Model/ProcessingTypes.h
+    ../src/Model/Service/ITranscodingBackend.h
+)
+
+target_include_directories(AudioPlayerTranscodingBackendContractTest PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/../src"
+)
+
+target_link_libraries(AudioPlayerTranscodingBackendContractTest PRIVATE
+    Qt6::Core
+    Qt6::Test
+)
+
+add_test(NAME AudioPlayerTranscodingBackendContractTest COMMAND AudioPlayerTranscodingBackendContractTest)
+
 qt_add_executable(AudioPlayerPlaybackUseCaseTest
     playback_usecase_test.cpp
     ../src/Model/AudioFile.cpp
