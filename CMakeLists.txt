@@ -64,6 +64,8 @@ if(AUDIOPLAYER_BUILD_APP)
         src/Model/FileScanner.h
         src/Model/JsonSongRepository.cpp
         src/Model/JsonSongRepository.h
+        src/Model/JsonLibraryDocumentRepository.cpp
+        src/Model/JsonLibraryDocumentRepository.h
         src/Model/LibraryDocument.cpp
         src/Model/LibraryDocument.h
         src/Model/LibraryPlaylist.cpp

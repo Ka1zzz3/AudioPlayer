@@ -53,6 +53,27 @@ target_link_libraries(AudioPlayerLibraryDocumentModelTest PRIVATE
 add_test(NAME AudioPlayerLibraryDocumentModelTest COMMAND AudioPlayerLibraryDocumentModelTest)
 
 
+qt_add_executable(AudioPlayerJsonLibraryDocumentRepositoryTest
+    json_library_document_repository_test.cpp
+    ../src/Model/AudioFile.cpp
+    ../src/Model/JsonLibraryDocumentRepository.cpp
+    ../src/Model/LibraryDocument.cpp
+    ../src/Model/LibraryPlaylist.cpp
+)
+
+target_include_directories(AudioPlayerJsonLibraryDocumentRepositoryTest PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/../src"
+)
+
+target_link_libraries(AudioPlayerJsonLibraryDocumentRepositoryTest PRIVATE
+    Qt6::Core
+    Qt6::Test
+    nlohmann_json::nlohmann_json
+)
+
+add_test(NAME AudioPlayerJsonLibraryDocumentRepositoryTest COMMAND AudioPlayerJsonLibraryDocumentRepositoryTest)
+
+
 qt_add_executable(AudioPlayerLibraryUseCaseTest
     library_usecase_test.cpp
     ../src/Model/AudioFile.cpp
