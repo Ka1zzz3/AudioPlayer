@@ -135,6 +135,30 @@ target_link_libraries(AudioPlayerAudioEffectsViewModelTest PRIVATE
 
 add_test(NAME AudioPlayerAudioEffectsViewModelTest COMMAND AudioPlayerAudioEffectsViewModelTest)
 
+if(AUDIOPLAYER_GSTREAMER_EFFECTS_AVAILABLE)
+    qt_add_executable(AudioPlayerGStreamerEffectsBackendTest
+        gstreamer_effects_backend_test.cpp
+        ../src/Model/Service/AudioEffectsTypes.cpp
+        ../src/Model/Service/AudioEffectsTypes.h
+        ../src/Model/Service/GStreamerEffectsPlaybackBackend.cpp
+        ../src/Model/Service/GStreamerEffectsPlaybackBackend.h
+        ../src/Model/Service/IAudioEffectsService.h
+        ../src/Model/Service/IPlaybackService.h
+    )
+
+    target_include_directories(AudioPlayerGStreamerEffectsBackendTest PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/../src"
+    )
+
+    target_link_libraries(AudioPlayerGStreamerEffectsBackendTest PRIVATE
+        Qt6::Core
+        Qt6::Test
+        PkgConfig::AUDIOPLAYER_GSTREAMER_EFFECTS
+    )
+
+    add_test(NAME AudioPlayerGStreamerEffectsBackendTest COMMAND AudioPlayerGStreamerEffectsBackendTest)
+endif()
+
 qt_add_executable(AudioPlayerJsonLibraryDocumentRepositoryTest
     json_library_document_repository_test.cpp
     ../src/Model/AudioFile.cpp

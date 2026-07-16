@@ -213,6 +213,16 @@ if(AUDIOPLAYER_BUILD_APP)
         AUDIOPLAYER_FFMPEG_EXECUTABLE="${AUDIOPLAYER_FFMPEG_EXECUTABLE}"
         AUDIOPLAYER_FFPROBE_EXECUTABLE="${AUDIOPLAYER_FFPROBE_EXECUTABLE}"
     )
+
+    if(AUDIOPLAYER_GSTREAMER_EFFECTS_AVAILABLE)
+        target_sources(AudioPlayer PRIVATE
+            src/Model/Service/GStreamerEffectsPlaybackBackend.cpp
+            src/Model/Service/GStreamerEffectsPlaybackBackend.h
+        )
+        target_link_libraries(AudioPlayer PRIVATE
+            PkgConfig::AUDIOPLAYER_GSTREAMER_EFFECTS
+        )
+    endif()
 endif()
 
 if(AUDIOPLAYER_GSTREAMER_EFFECTS_AVAILABLE)
