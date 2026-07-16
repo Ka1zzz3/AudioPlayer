@@ -182,7 +182,6 @@ void MainWindow::buildUi()
     playlistControlsLayout->addWidget(m_createPlaylistButton);
     playlistControlsLayout->addWidget(m_deletePlaylistButton);
     playlistControlsLayout->addWidget(m_addSongsToPlaylistButton);
-    playlistControlsLayout->addWidget(m_playSelectedSongButton);
     playlistControlsLayout->addWidget(m_playVisiblePlaylistButton);
     playlistControlsLayout->addStretch(1);
     playlistLayout->addLayout(playlistControlsLayout);
@@ -207,13 +206,12 @@ void MainWindow::buildUi()
 
     auto *playbackButtonsLayout = new QHBoxLayout();
     m_previousButton = new QPushButton(tr("Previous"), centralWidget);
-    m_playButton = new QPushButton(tr("Play"), centralWidget);
-    m_pauseButton = new QPushButton(tr("Pause"), centralWidget);
+    m_pauseButton = new QPushButton(tr("Pause/Resume"), centralWidget);
     m_stopButton = new QPushButton(tr("Stop"), centralWidget);
     m_nextButton = new QPushButton(tr("Next"), centralWidget);
     m_muteButton = new QPushButton(tr("Mute"), centralWidget);
     playbackButtonsLayout->addWidget(m_previousButton);
-    playbackButtonsLayout->addWidget(m_playButton);
+    playbackButtonsLayout->addWidget(m_playSelectedSongButton);
     playbackButtonsLayout->addWidget(m_pauseButton);
     playbackButtonsLayout->addWidget(m_stopButton);
     playbackButtonsLayout->addWidget(m_nextButton);
@@ -454,8 +452,19 @@ void MainWindow::bindPlaylistCollectionViewModel()
 
 void MainWindow::bindPlaybackViewModel()
 {
-    bindButton(*m_playButton, m_playbackViewModel.playCommand());
-    bindButton(*m_pauseButton, m_playbackViewModel.pauseCommand());
+    connect(m_pauseButton, &QPushButton::clicked, this, [this]() {
+        if (m_playbackViewModel.playbackState() == ViewModel::PlaybackState::Playing) {
+            if (m_playbackViewModel.pauseCommand() != nullptr) {
+                m_playbackViewModel.pauseCommand()->execute();
+            }
+            return;
+        }
+
+        if (m_playbackViewModel.playbackState() == ViewModel::PlaybackState::Paused
+            && m_playbackViewModel.playCommand() != nullptr) {
+            m_playbackViewModel.playCommand()->execute();
+        }
+    });
     bindButton(*m_stopButton, m_playbackViewModel.stopCommand());
     bindButton(*m_previousButton, m_playbackViewModel.previousCommand());
     bindButton(*m_nextButton, m_playbackViewModel.nextCommand());
@@ -466,6 +475,10 @@ void MainWindow::bindPlaybackViewModel()
             &ViewModel::PlaybackViewModelProtocol::currentPlaybackTitleChanged,
             this,
             &MainWindow::updateCurrentPlaybackTrack);
+    connect(&m_playbackViewModel,
+            &ViewModel::PlaybackViewModelProtocol::currentPlaybackTitleChanged,
+            this,
+            &MainWindow::updatePlaybackState);
     connect(&m_playbackViewModel, &ViewModel::PlaybackViewModelProtocol::positionMsChanged, this, &MainWindow::updatePlaybackPosition);
     connect(&m_playbackViewModel, &ViewModel::PlaybackViewModelProtocol::durationMsChanged, this, &MainWindow::updatePlaybackDuration);
     connect(&m_playbackViewModel, &ViewModel::PlaybackViewModelProtocol::seekableChanged, this, &MainWindow::updatePlaybackSeekable);
@@ -744,6 +757,25 @@ void MainWindow::updatePlaylistLastError()
 void MainWindow::updatePlaybackState()
 {
     m_playbackStateLabel->setText(tr("Playback state: %1").arg(playbackStateText()));
+
+    const bool hasCurrentTrack = m_playbackViewModel.currentPlaybackIndex() >= 0;
+    switch (m_playbackViewModel.playbackState()) {
+    case ViewModel::PlaybackState::Playing:
+        m_pauseButton->setText(tr("Pause"));
+        m_pauseButton->setEnabled(hasCurrentTrack);
+        break;
+    case ViewModel::PlaybackState::Paused:
+        m_pauseButton->setText(tr("Resume"));
+        m_pauseButton->setEnabled(hasCurrentTrack);
+        break;
+    case ViewModel::PlaybackState::Stopped:
+    case ViewModel::PlaybackState::Loading:
+    case ViewModel::PlaybackState::Buffering:
+    case ViewModel::PlaybackState::Error:
+        m_pauseButton->setText(tr("Pause/Resume"));
+        m_pauseButton->setEnabled(false);
+        break;
+    }
 }
 
 void MainWindow::updateCurrentPlaybackTrack()

@@ -107,7 +107,6 @@ private:
     QPushButton *m_addSongsToPlaylistButton = nullptr;
     QPushButton *m_playSelectedSongButton = nullptr;
     QPushButton *m_playVisiblePlaylistButton = nullptr;
-    QPushButton *m_playButton = nullptr;
     QPushButton *m_pauseButton = nullptr;
     QPushButton *m_stopButton = nullptr;
     QPushButton *m_previousButton = nullptr;
