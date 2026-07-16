@@ -237,6 +237,31 @@ target_link_libraries(AudioPlayerPlaybackUseCaseTest PRIVATE
 add_test(NAME AudioPlayerPlaybackUseCaseTest COMMAND AudioPlayerPlaybackUseCaseTest)
 
 
+
+qt_add_executable(AudioPlayerTranscodedPlaylistServiceTest
+    transcoded_playlist_service_test.cpp
+    ../src/Model/AudioFile.cpp
+    ../src/Model/JsonLibraryDocumentRepository.cpp
+    ../src/Model/LibraryDocument.cpp
+    ../src/Model/LibraryPlaylist.cpp
+    ../src/Model/Service/PlaylistCollectionUseCase.cpp
+    ../src/Model/Service/PlaylistCollectionUseCase.h
+    ../src/Model/Service/TranscodedPlaylistService.cpp
+    ../src/Model/Service/TranscodedPlaylistService.h
+)
+
+target_include_directories(AudioPlayerTranscodedPlaylistServiceTest PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/../src"
+)
+
+target_link_libraries(AudioPlayerTranscodedPlaylistServiceTest PRIVATE
+    Qt6::Core
+    Qt6::Test
+    nlohmann_json::nlohmann_json
+)
+
+add_test(NAME AudioPlayerTranscodedPlaylistServiceTest COMMAND AudioPlayerTranscodedPlaylistServiceTest)
+
 qt_add_executable(AudioPlayerProcessingViewModelTest
     processing_viewmodel_test.cpp
     ../src/Common/ViewCommand.cpp
@@ -305,6 +330,8 @@ qt_add_executable(AudioPlayerPlaybackCompositionTest
     ../src/Model/Service/PlaybackUseCase.h
     ../src/Model/Service/PlaylistCollectionUseCase.cpp
     ../src/Model/Service/PlaylistCollectionUseCase.h
+    ../src/Model/Service/TranscodedPlaylistService.cpp
+    ../src/Model/Service/TranscodedPlaylistService.h
     ../src/Model/Service/IPlaybackService.h
     ../src/Model/Service/PlaybackTypes.h
     ../src/ViewModel/LibraryViewModel.cpp

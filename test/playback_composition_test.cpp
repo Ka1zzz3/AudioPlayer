@@ -3,6 +3,8 @@
 #include "Model/PlayList.h"
 #include "Model/Service/IPlaybackService.h"
 #include "Model/Service/PlaybackUseCase.h"
+#include "Model/Service/PlaylistCollectionUseCase.h"
+#include "Model/Service/TranscodedPlaylistService.h"
 #include "ViewModel/LibraryViewModel.h"
 #include "ViewModel/PlaybackViewModel.h"
 #include "ViewModel/PlaylistCollectionViewModel.h"
@@ -24,6 +26,8 @@ using AudioPlayer::Model::Service::IPlaybackService;
 using AudioPlayer::Model::Service::PlaybackBackendError;
 using AudioPlayer::Model::Service::PlaybackBackendState;
 using AudioPlayer::Model::Service::PlaybackUseCase;
+using AudioPlayer::Model::Service::PlaylistCollectionUseCase;
+using AudioPlayer::Model::Service::TranscodedPlaylistService;
 using AudioPlayer::ViewModel::LibraryViewModel;
 using AudioPlayer::ViewModel::PlaybackState;
 using AudioPlayer::ViewModel::PlaybackViewModel;
@@ -95,6 +99,7 @@ private slots:
     void refreshDoesNotClearPlaybackWhenCurrentSourceDisappears();
     void explicitPlayRequestReplacesPlaybackQueueAndStartsPlayback();
     void visiblePlaylistSwitchDoesNotReplaceActivePlaybackQueue();
+    void transcodedPlaylistInsertionDoesNotReplacePlaybackQueueOrAutoPlay();
 };
 
 namespace {
@@ -254,6 +259,41 @@ void PlaybackCompositionTest::visiblePlaylistSwitchDoesNotReplaceActivePlaybackQ
     QCOMPARE(fixture.playbackViewModel.currentPlaybackTitle(), QStringLiteral("Playing"));
     QCOMPARE(fixture.playbackService.source(), playingPath);
     QCOMPARE(fixture.playbackService.setSourceCount(), setSourceCountBeforeSwitch);
+    QCOMPARE(fixture.playbackViewModel.playbackState(), PlaybackState::Playing);
+}
+
+
+void PlaybackCompositionTest::transcodedPlaylistInsertionDoesNotReplacePlaybackQueueOrAutoPlay()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+    const QString playingPath = createAudioFile(temporaryDirectory, QStringLiteral("Playing.mp3"));
+    const QString transcodedPath = temporaryDirectory.filePath(QStringLiteral("Transcoded.mp3"));
+    PlaybackCompositionFixture fixture;
+    PlayList playList;
+    playList.add(AudioFile(playingPath, QStringLiteral("Playing")));
+    fixture.playbackViewModel.replaceQueue(playList.items());
+    fixture.playbackViewModel.setCurrentPlaybackIndex(0);
+    QVERIFY(fixture.playbackViewModel.playCommand()->execute());
+    QCOMPARE(fixture.playbackService.source(), playingPath);
+    const int setSourceCountBefore = fixture.playbackService.setSourceCount();
+
+    PlaylistCollectionUseCase playlistUseCase;
+    const QString storagePath = temporaryDirectory.filePath(QStringLiteral("library-v2.json"));
+    const auto document = playlistUseCase.createEmptyDocument(QStringLiteral("default"),
+                                                              QDateTime::fromSecsSinceEpoch(1000, Qt::UTC),
+                                                              QStringLiteral("Default"))
+                              .document;
+    QVERIFY(playlistUseCase.replaceWithEmptyV2(storagePath, document).ok());
+    TranscodedPlaylistService transcodedService(storagePath);
+
+    QVERIFY(transcodedService.addOutput(AudioFile(transcodedPath, QStringLiteral("Transcoded")),
+                                        QDateTime::fromSecsSinceEpoch(2000, Qt::UTC))
+                .ok());
+
+    QCOMPARE(fixture.playbackService.source(), playingPath);
+    QCOMPARE(fixture.playbackService.setSourceCount(), setSourceCountBefore);
+    QCOMPARE(fixture.playbackViewModel.currentPlaybackIndex(), 0);
     QCOMPARE(fixture.playbackViewModel.playbackState(), PlaybackState::Playing);
 }
 

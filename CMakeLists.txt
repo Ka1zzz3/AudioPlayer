@@ -91,6 +91,8 @@ if(AUDIOPLAYER_BUILD_APP)
         src/Model/Service/PlaybackUseCase.h
         src/Model/Service/ProcessingUseCase.cpp
         src/Model/Service/ProcessingUseCase.h
+        src/Model/Service/TranscodedPlaylistService.cpp
+        src/Model/Service/TranscodedPlaylistService.h
         src/Model/Service/QtMultimediaPlaybackService.cpp
         src/Model/Service/QtMultimediaPlaybackService.h
         src/View/MainWindow.cpp
