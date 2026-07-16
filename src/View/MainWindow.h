@@ -59,7 +59,6 @@ private:
     void updatePlaybackMuted();
     void updatePlaybackError();
     void updatePlaybackStatusMessage();
-    void syncPlaybackSelection();
     void setLabelVisibleText(QLabel &label, const QString &text);
     [[nodiscard]] QString playbackStateText() const;
     [[nodiscard]] static int sliderValueFromMs(qint64 valueMs);

@@ -508,21 +508,6 @@ void MainWindow::updatePlaybackStatusMessage()
     setLabelVisibleText(*m_playbackStatusLabel, m_playbackViewModel.statusMessage());
 }
 
-void MainWindow::syncPlaybackSelection()
-{
-    const int row = m_playbackViewModel.currentPlaybackIndex();
-    if (m_songListView->model() == nullptr || row < 0 || row >= m_songListView->model()->rowCount()) {
-        return;
-    }
-
-    const QModelIndex index = m_songListView->model()->index(row, 0);
-    if (!index.isValid() || m_songListView->currentIndex() == index) {
-        return;
-    }
-
-    m_songListView->setCurrentIndex(index);
-}
-
 void MainWindow::setLabelVisibleText(QLabel &label, const QString &text)
 {
     label.setText(text);

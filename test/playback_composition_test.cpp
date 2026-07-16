@@ -94,6 +94,7 @@ private slots:
     void libraryChangesDoNotSynchronizePlaybackQueue();
     void refreshDoesNotClearPlaybackWhenCurrentSourceDisappears();
     void explicitPlayRequestReplacesPlaybackQueueAndStartsPlayback();
+    void visiblePlaylistSwitchDoesNotReplaceActivePlaybackQueue();
 };
 
 namespace {
@@ -225,6 +226,34 @@ void PlaybackCompositionTest::explicitPlayRequestReplacesPlaybackQueueAndStartsP
     QCOMPARE(fixture.playbackViewModel.currentPlaybackIndex(), 1);
     QCOMPARE(fixture.playbackViewModel.currentPlaybackTitle(), QStringLiteral("Two"));
     QCOMPARE(fixture.playbackService.source(), secondPath);
+    QCOMPARE(fixture.playbackViewModel.playbackState(), PlaybackState::Playing);
+}
+
+void PlaybackCompositionTest::visiblePlaylistSwitchDoesNotReplaceActivePlaybackQueue()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+    const QString playingPath = createAudioFile(temporaryDirectory, QStringLiteral("Playing.mp3"));
+    const QString visiblePath = createAudioFile(temporaryDirectory, QStringLiteral("Visible.mp3"));
+    PlaybackCompositionFixture fixture;
+    QVector<AudioFile> activeQueue{AudioFile(playingPath, QStringLiteral("Playing"))};
+    QVector<AudioFile> visibleSongs{AudioFile(visiblePath, QStringLiteral("Visible"))};
+
+    fixture.playbackViewModel.replaceQueue(activeQueue);
+    fixture.playbackViewModel.setCurrentPlaybackIndex(0);
+    QVERIFY(fixture.playbackViewModel.playCommand()->execute());
+    const int setSourceCountBeforeSwitch = fixture.playbackService.setSourceCount();
+
+    fixture.playlistCollectionViewModel.setNewPlaylistName(QStringLiteral("Other"));
+    QVERIFY(fixture.playlistCollectionViewModel.createPlaylistCommand()->execute());
+    fixture.playlistCollectionViewModel.setCurrentVisibleSongs(visibleSongs);
+    fixture.playlistCollectionViewModel.setSelectedPlaylistId(QStringLiteral("playlist-2"));
+    QVERIFY(fixture.playlistCollectionViewModel.switchPlaylistCommand()->execute());
+
+    QCOMPARE(fixture.playbackViewModel.currentPlaybackIndex(), 0);
+    QCOMPARE(fixture.playbackViewModel.currentPlaybackTitle(), QStringLiteral("Playing"));
+    QCOMPARE(fixture.playbackService.source(), playingPath);
+    QCOMPARE(fixture.playbackService.setSourceCount(), setSourceCountBeforeSwitch);
     QCOMPARE(fixture.playbackViewModel.playbackState(), PlaybackState::Playing);
 }
 
