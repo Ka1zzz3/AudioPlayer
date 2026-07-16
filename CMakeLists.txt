@@ -87,6 +87,8 @@ if(AUDIOPLAYER_BUILD_APP)
         src/Model/ProcessingTask.h
         src/Model/ProcessingTypes.cpp
         src/Model/ProcessingTypes.h
+        src/Model/Service/AudioEffectsTypes.cpp
+        src/Model/Service/AudioEffectsTypes.h
         src/Model/Service/IPlaybackService.h
         src/Model/Service/ITranscodingBackend.h
         src/Model/Service/FfmpegTranscodingBackend.cpp

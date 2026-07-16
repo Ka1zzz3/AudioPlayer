@@ -73,6 +73,23 @@ target_link_libraries(AudioPlayerProcessingTaskModelTest PRIVATE
 
 add_test(NAME AudioPlayerProcessingTaskModelTest COMMAND AudioPlayerProcessingTaskModelTest)
 
+qt_add_executable(AudioPlayerAudioEffectsTypesTest
+    audio_effects_types_test.cpp
+    ../src/Model/Service/AudioEffectsTypes.cpp
+    ../src/Model/Service/AudioEffectsTypes.h
+)
+
+target_include_directories(AudioPlayerAudioEffectsTypesTest PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/../src"
+)
+
+target_link_libraries(AudioPlayerAudioEffectsTypesTest PRIVATE
+    Qt6::Core
+    Qt6::Test
+)
+
+add_test(NAME AudioPlayerAudioEffectsTypesTest COMMAND AudioPlayerAudioEffectsTypesTest)
+
 qt_add_executable(AudioPlayerJsonLibraryDocumentRepositoryTest
     json_library_document_repository_test.cpp
     ../src/Model/AudioFile.cpp
