@@ -264,6 +264,33 @@ target_link_libraries(AudioPlayerViewModelBehaviorTest PRIVATE
 
 add_test(NAME AudioPlayerViewModelBehaviorTest COMMAND AudioPlayerViewModelBehaviorTest)
 
+qt_add_executable(AudioPlayerPlaylistCollectionViewModelTest
+    playlist_collection_viewmodel_test.cpp
+    ../src/Common/ViewCommand.cpp
+    ../src/Model/AudioFile.cpp
+    ../src/Model/JsonLibraryDocumentRepository.cpp
+    ../src/Model/LibraryDocument.cpp
+    ../src/Model/LibraryPlaylist.cpp
+    ../src/Model/Service/PlaylistCollectionUseCase.cpp
+    ../src/ViewModel/PlaylistCollectionViewModel.cpp
+    ../src/ViewModel/PlaylistCollectionViewModel.h
+    ../src/ViewModel/PlaylistCollectionViewModelProtocol.h
+    ../src/ViewModel/PlaylistListModel.cpp
+    ../src/ViewModel/PlaylistListModel.h
+)
+
+target_include_directories(AudioPlayerPlaylistCollectionViewModelTest PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/../src"
+)
+
+target_link_libraries(AudioPlayerPlaylistCollectionViewModelTest PRIVATE
+    Qt6::Core
+    Qt6::Test
+    nlohmann_json::nlohmann_json
+)
+
+add_test(NAME AudioPlayerPlaylistCollectionViewModelTest COMMAND AudioPlayerPlaylistCollectionViewModelTest)
+
 qt_add_executable(AudioPlayerArchitectureBoundaryTest
     architecture_boundary_test.cpp
 )

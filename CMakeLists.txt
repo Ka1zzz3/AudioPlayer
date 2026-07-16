@@ -90,6 +90,11 @@ if(AUDIOPLAYER_BUILD_APP)
         src/ViewModel/LibraryViewModel.h
         src/ViewModel/LibraryViewModelProtocol.h
         src/ViewModel/PlaybackState.h
+        src/ViewModel/PlaylistCollectionViewModel.cpp
+        src/ViewModel/PlaylistCollectionViewModel.h
+        src/ViewModel/PlaylistCollectionViewModelProtocol.h
+        src/ViewModel/PlaylistListModel.cpp
+        src/ViewModel/PlaylistListModel.h
         src/ViewModel/PlaybackViewModel.cpp
         src/ViewModel/PlaybackViewModel.h
         src/ViewModel/PlaybackViewModelProtocol.h
