@@ -104,6 +104,11 @@ if(AUDIOPLAYER_BUILD_APP)
         src/ViewModel/PlaylistCollectionViewModelProtocol.h
         src/ViewModel/PlaylistListModel.cpp
         src/ViewModel/PlaylistListModel.h
+        src/ViewModel/ProcessingTaskListModel.cpp
+        src/ViewModel/ProcessingTaskListModel.h
+        src/ViewModel/ProcessingViewModel.cpp
+        src/ViewModel/ProcessingViewModel.h
+        src/ViewModel/ProcessingViewModelProtocol.h
         src/ViewModel/PlaybackViewModel.cpp
         src/ViewModel/PlaybackViewModel.h
         src/ViewModel/PlaybackViewModelProtocol.h

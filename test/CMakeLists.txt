@@ -236,6 +236,35 @@ target_link_libraries(AudioPlayerPlaybackUseCaseTest PRIVATE
 
 add_test(NAME AudioPlayerPlaybackUseCaseTest COMMAND AudioPlayerPlaybackUseCaseTest)
 
+
+qt_add_executable(AudioPlayerProcessingViewModelTest
+    processing_viewmodel_test.cpp
+    ../src/Common/ViewCommand.cpp
+    ../src/Model/ProcessingTask.cpp
+    ../src/Model/ProcessingTask.h
+    ../src/Model/ProcessingTypes.cpp
+    ../src/Model/ProcessingTypes.h
+    ../src/Model/Service/ITranscodingBackend.h
+    ../src/Model/Service/ProcessingUseCase.cpp
+    ../src/Model/Service/ProcessingUseCase.h
+    ../src/ViewModel/ProcessingTaskListModel.cpp
+    ../src/ViewModel/ProcessingTaskListModel.h
+    ../src/ViewModel/ProcessingViewModel.cpp
+    ../src/ViewModel/ProcessingViewModel.h
+    ../src/ViewModel/ProcessingViewModelProtocol.h
+)
+
+target_include_directories(AudioPlayerProcessingViewModelTest PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/../src"
+)
+
+target_link_libraries(AudioPlayerProcessingViewModelTest PRIVATE
+    Qt6::Core
+    Qt6::Test
+)
+
+add_test(NAME AudioPlayerProcessingViewModelTest COMMAND AudioPlayerProcessingViewModelTest)
+
 qt_add_executable(AudioPlayerPlaybackViewModelTest
     playback_viewmodel_test.cpp
     ../src/Common/ViewCommand.cpp

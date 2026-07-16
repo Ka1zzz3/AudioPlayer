@@ -16,6 +16,7 @@ private slots:
     void widgetsSelectionDoesNotDrivePlaybackQueueDirectly();
     void playlistAndRepositoryDetailsDoNotLeakIntoWidgetsView();
     void playbackBackendDoesNotLeakIntoViewOrProtocols();
+    void processingBackendDoesNotLeakIntoViewOrProtocols();
     void productionBuildDoesNotReferenceQmlOrQtQuick();
     void vcpkgManifestUsesWidgetsWithoutQmlDependencies();
 };
@@ -149,6 +150,36 @@ void ArchitectureBoundaryTest::playbackBackendDoesNotLeakIntoViewOrProtocols()
         for (const QString &token : forbiddenTokens) {
             QVERIFY2(!text.contains(token),
                      qPrintable(QStringLiteral("%1 must not expose playback backend token %2")
+                                     .arg(relativePath, token)));
+        }
+    }
+}
+
+
+void ArchitectureBoundaryTest::processingBackendDoesNotLeakIntoViewOrProtocols()
+{
+    const QStringList filesToCheck{
+        QStringLiteral("src/View/MainWindow.h"),
+        QStringLiteral("src/View/MainWindow.cpp"),
+        QStringLiteral("src/ViewModel/LibraryViewModelProtocol.h"),
+        QStringLiteral("src/ViewModel/PlaybackViewModelProtocol.h"),
+        QStringLiteral("src/ViewModel/PlaylistCollectionViewModelProtocol.h"),
+        QStringLiteral("src/ViewModel/ProcessingViewModelProtocol.h"),
+    };
+    const QStringList forbiddenTokens{
+        QStringLiteral("QProcess"),
+        QStringLiteral("ffmpeg"),
+        QStringLiteral("ffprobe"),
+        QStringLiteral("FfmpegTranscodingBackend"),
+        QStringLiteral("ITranscodingBackend"),
+        QStringLiteral("ProcessingUseCase"),
+    };
+
+    for (const QString &relativePath : filesToCheck) {
+        const QString text = readTextFile(relativePath);
+        for (const QString &token : forbiddenTokens) {
+            QVERIFY2(!text.contains(token),
+                     qPrintable(QStringLiteral("%1 must not expose processing backend token %2")
                                      .arg(relativePath, token)));
         }
     }
