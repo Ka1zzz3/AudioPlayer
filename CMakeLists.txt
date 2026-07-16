@@ -49,6 +49,17 @@ if(NOT nlohmann_json_FOUND)
     )
 endif()
 
+find_program(AUDIOPLAYER_FFMPEG_EXECUTABLE NAMES ffmpeg)
+find_program(AUDIOPLAYER_FFPROBE_EXECUTABLE NAMES ffprobe)
+if(NOT AUDIOPLAYER_FFMPEG_EXECUTABLE)
+    set(AUDIOPLAYER_FFMPEG_EXECUTABLE "ffmpeg")
+    message(STATUS "ffmpeg executable was not found at configure time; transcoding will report a runtime error if unavailable.")
+endif()
+if(NOT AUDIOPLAYER_FFPROBE_EXECUTABLE)
+    set(AUDIOPLAYER_FFPROBE_EXECUTABLE "ffprobe")
+    message(STATUS "ffprobe executable was not found at configure time; transcoding progress may be unavailable if the tool is missing.")
+endif()
+
 qt_standard_project_setup(REQUIRES 6.4)
 
 if(AUDIOPLAYER_BUILD_APP)
@@ -133,6 +144,11 @@ if(AUDIOPLAYER_BUILD_APP)
         Qt6::Multimedia
         Qt6::Widgets
         nlohmann_json::nlohmann_json
+    )
+
+    target_compile_definitions(AudioPlayer PRIVATE
+        AUDIOPLAYER_FFMPEG_EXECUTABLE="${AUDIOPLAYER_FFMPEG_EXECUTABLE}"
+        AUDIOPLAYER_FFPROBE_EXECUTABLE="${AUDIOPLAYER_FFPROBE_EXECUTABLE}"
     )
 endif()
 

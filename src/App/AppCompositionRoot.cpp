@@ -21,6 +21,18 @@
 
 namespace AudioPlayer::App {
 
+namespace {
+
+#ifndef AUDIOPLAYER_FFMPEG_EXECUTABLE
+#define AUDIOPLAYER_FFMPEG_EXECUTABLE "ffmpeg"
+#endif
+
+#ifndef AUDIOPLAYER_FFPROBE_EXECUTABLE
+#define AUDIOPLAYER_FFPROBE_EXECUTABLE "ffprobe"
+#endif
+
+} // namespace
+
 int runWidgetsApplication(int argc, char *argv[])
 {
     QApplication application(argc, argv);
@@ -32,7 +44,8 @@ int runWidgetsApplication(int argc, char *argv[])
     Model::Service::PlaybackUseCase playbackUseCase(playbackService);
     ViewModel::PlaybackViewModel playbackViewModel(playbackUseCase, playbackService);
     ViewModel::PlaylistCollectionViewModel playlistCollectionViewModel;
-    Model::Service::FfmpegTranscodingBackend transcodingBackend;
+    Model::Service::FfmpegTranscodingBackend transcodingBackend(QString::fromUtf8(AUDIOPLAYER_FFMPEG_EXECUTABLE),
+                                                                QString::fromUtf8(AUDIOPLAYER_FFPROBE_EXECUTABLE));
     auto processingUseCase = std::make_shared<Model::Service::ProcessingUseCase>(&transcodingBackend);
     ViewModel::ProcessingViewModel processingViewModel(processingUseCase);
     Model::Service::TranscodedPlaylistService transcodedPlaylistService(QStringLiteral("storage/library.json"));

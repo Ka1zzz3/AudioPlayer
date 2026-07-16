@@ -53,3 +53,17 @@ Phase 2 is playlist-only:
 - No advanced queue management, shuffle/repeat, search/filter, tag editing, import/export, cloud sync, audio processing, EQ, or spectrum features.
 
 Visible playlist switching is independent from the active playback queue. The active playback queue is replaced only through an explicit play request from the playlist ViewModel routed by App Composition.
+
+
+## Phase 3 transcoded outputs
+
+Successful transcode tasks add their output file to a dedicated playlist:
+
+```text
+id: transcoded
+name: Transcoded
+```
+
+The `Transcoded` playlist is created on demand and saved through the ordinary `schemaVersion: 2` persistence path. If the audio file is created but playlist insertion or save fails, the processing UI reports a visible warning/error; the failure does not mark the file transcode itself as failed.
+
+Adding a transcoded output to `storage/library.json` does not replace the active playback queue and does not auto-play. Playback queue changes still require an explicit play request.

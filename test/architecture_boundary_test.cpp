@@ -70,6 +70,7 @@ void ArchitectureBoundaryTest::widgetsViewBindsOnlyToViewModelProtocol()
         QStringLiteral("#include \"ViewModel/LibraryViewModel.h\""),
         QStringLiteral("#include \"ViewModel/PlaybackViewModel.h\""),
         QStringLiteral("#include \"ViewModel/PlaylistCollectionViewModel.h\""),
+        QStringLiteral("#include \"ViewModel/ProcessingViewModel.h\""),
     };
     for (const QString &token : forbiddenConcreteViewModels) {
         QVERIFY2(!viewText.contains(token),
@@ -81,6 +82,8 @@ void ArchitectureBoundaryTest::widgetsViewBindsOnlyToViewModelProtocol()
              "View should bind through the playlist ViewModel protocol.");
     QVERIFY2(viewText.contains(QStringLiteral("PlaybackViewModelProtocol")),
              "View should bind through the playback ViewModel protocol.");
+    QVERIFY2(viewText.contains(QStringLiteral("ProcessingViewModelProtocol")),
+             "View should bind through the processing ViewModel protocol.");
     QVERIFY2(viewText.contains(QStringLiteral("ViewCommand")), "View should bind button intents through ViewCommand.");
 
     const QRegularExpression directBusinessCall(QStringLiteral(R"(\.\s*(load|save|refresh|scanDirectory)\s*\()"));
@@ -119,6 +122,8 @@ void ArchitectureBoundaryTest::playlistAndRepositoryDetailsDoNotLeakIntoWidgetsV
         QStringLiteral("PlaylistCollectionUseCase"),
         QStringLiteral("LibraryUseCase"),
         QStringLiteral("PlaybackUseCase"),
+        QStringLiteral("ProcessingUseCase"),
+        QStringLiteral("TranscodedPlaylistService"),
     };
 
     for (const QString &token : forbiddenTokens) {
