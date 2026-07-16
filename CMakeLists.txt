@@ -12,6 +12,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(AUDIOPLAYER_BUILD_APP "Build the Qt Widgets application target" ON)
 
+option(AUDIOPLAYER_ENABLE_GSTREAMER_EFFECTS "Enable the optional GStreamer effects-capable playback backend build gate" ON)
+
 find_package(Qt6 6.4 QUIET COMPONENTS Core Gui)
 if(NOT Qt6_FOUND)
     message(FATAL_ERROR
@@ -38,6 +40,59 @@ if(AUDIOPLAYER_BUILD_APP)
             "-DAUDIOPLAYER_BUILD_APP=OFF for model/viewmodel-only tests."
         )
     endif()
+endif()
+
+
+set(AUDIOPLAYER_GSTREAMER_EFFECTS_AVAILABLE OFF)
+set(AUDIOPLAYER_GSTREAMER_EFFECTS_REASON "GStreamer effects backend was disabled.")
+if(AUDIOPLAYER_ENABLE_GSTREAMER_EFFECTS)
+    find_package(PkgConfig QUIET)
+    if(PkgConfig_FOUND)
+        pkg_check_modules(AUDIOPLAYER_GSTREAMER_EFFECTS QUIET IMPORTED_TARGET
+            gstreamer-1.0>=1.20
+            gstreamer-audio-1.0>=1.20
+            gstreamer-pbutils-1.0>=1.20
+        )
+    endif()
+
+    find_program(AUDIOPLAYER_GST_INSPECT_EXECUTABLE NAMES gst-inspect-1.0)
+    find_program(AUDIOPLAYER_GST_LAUNCH_EXECUTABLE NAMES gst-launch-1.0)
+
+    set(AUDIOPLAYER_GSTREAMER_EFFECTS_PLUGINS_AVAILABLE OFF)
+    if(AUDIOPLAYER_GST_INSPECT_EXECUTABLE)
+        set(AUDIOPLAYER_GSTREAMER_EFFECTS_PLUGINS_AVAILABLE ON)
+        foreach(plugin_name IN ITEMS scaletempo equalizer-nbands fakesink uridecodebin audioconvert audioresample)
+            execute_process(
+                COMMAND "${AUDIOPLAYER_GST_INSPECT_EXECUTABLE}" "${plugin_name}"
+                RESULT_VARIABLE AUDIOPLAYER_GST_PLUGIN_RESULT
+                OUTPUT_QUIET
+                ERROR_QUIET
+            )
+            if(NOT AUDIOPLAYER_GST_PLUGIN_RESULT EQUAL 0)
+                set(AUDIOPLAYER_GSTREAMER_EFFECTS_PLUGINS_AVAILABLE OFF)
+                list(APPEND AUDIOPLAYER_GSTREAMER_EFFECTS_MISSING_PLUGINS "${plugin_name}")
+            endif()
+        endforeach()
+    endif()
+
+    if(AUDIOPLAYER_GSTREAMER_EFFECTS_FOUND AND AUDIOPLAYER_GSTREAMER_EFFECTS_PLUGINS_AVAILABLE)
+        set(AUDIOPLAYER_GSTREAMER_EFFECTS_AVAILABLE ON)
+        set(AUDIOPLAYER_GSTREAMER_EFFECTS_REASON "GStreamer dev packages and effects runtime plugins were found.")
+        message(STATUS "AudioPlayer GStreamer effects backend gate: available (${AUDIOPLAYER_GSTREAMER_EFFECTS_VERSION})")
+    else()
+        set(AUDIOPLAYER_GSTREAMER_EFFECTS_REASON "GStreamer effects backend prerequisites are missing.")
+        message(WARNING
+            "AUDIOPLAYER_ENABLE_GSTREAMER_EFFECTS=ON, but the effects backend cannot be built. "
+            "Install GStreamer 1.20+ development packages for gstreamer-1.0, gstreamer-audio-1.0, "
+            "gstreamer-pbutils-1.0 and runtime plugins: scaletempo, equalizer-nbands, fakesink, "
+            "uridecodebin, audioconvert, audioresample. "
+            "PkgConfig found=${PkgConfig_FOUND}; dev packages found=${AUDIOPLAYER_GSTREAMER_EFFECTS_FOUND}; "
+            "gst-inspect=${AUDIOPLAYER_GST_INSPECT_EXECUTABLE}; missing plugins=${AUDIOPLAYER_GSTREAMER_EFFECTS_MISSING_PLUGINS}. "
+            "Default fake-only tests and the Qt Multimedia playback fallback can still build, but real effects are unavailable."
+        )
+    endif()
+else()
+    message(STATUS "AudioPlayer GStreamer effects backend gate: disabled by AUDIOPLAYER_ENABLE_GSTREAMER_EFFECTS=OFF")
 endif()
 
 find_package(nlohmann_json CONFIG QUIET)
@@ -157,6 +212,22 @@ if(AUDIOPLAYER_BUILD_APP)
     target_compile_definitions(AudioPlayer PRIVATE
         AUDIOPLAYER_FFMPEG_EXECUTABLE="${AUDIOPLAYER_FFMPEG_EXECUTABLE}"
         AUDIOPLAYER_FFPROBE_EXECUTABLE="${AUDIOPLAYER_FFPROBE_EXECUTABLE}"
+    )
+endif()
+
+if(AUDIOPLAYER_GSTREAMER_EFFECTS_AVAILABLE)
+    add_executable(AudioPlayerGStreamerEffectsProbe
+        tools/gstreamer_effects_probe.cpp
+    )
+    target_link_libraries(AudioPlayerGStreamerEffectsProbe PRIVATE
+        PkgConfig::AUDIOPLAYER_GSTREAMER_EFFECTS
+    )
+elseif(AUDIOPLAYER_ENABLE_GSTREAMER_EFFECTS)
+    add_custom_target(AudioPlayerGStreamerEffectsProbe
+        COMMAND "${CMAKE_COMMAND}" -E echo "AudioPlayerGStreamerEffectsProbe is unavailable: ${AUDIOPLAYER_GSTREAMER_EFFECTS_REASON}"
+        COMMAND "${CMAKE_COMMAND}" -E echo "Install GStreamer 1.20+ dev packages and runtime plugins, then reconfigure."
+        COMMAND "${CMAKE_COMMAND}" -E false
+        VERBATIM
     )
 endif()
 
