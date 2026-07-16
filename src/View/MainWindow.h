@@ -98,6 +98,8 @@ private:
     QLineEdit *m_storagePathInput = nullptr;
     QLineEdit *m_scanDirectoryPathInput = nullptr;
     QLineEdit *m_playlistNameInput = nullptr;
+    QPushButton *m_selectStorageDirectoryButton = nullptr;
+    QPushButton *m_selectScanDirectoryButton = nullptr;
     QPushButton *m_scanButton = nullptr;
     QPushButton *m_saveButton = nullptr;
     QPushButton *m_loadButton = nullptr;

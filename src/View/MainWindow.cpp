@@ -14,7 +14,9 @@
 #include <QCheckBox>
 #include <QCloseEvent>
 #include <QComboBox>
+#include <QDir>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QFormLayout>
 #include <QItemSelectionModel>
 #include <QLabel>
@@ -128,10 +130,20 @@ void MainWindow::buildUi()
     auto *storageLayout = new QFormLayout();
     auto *scanDirectoryLayout = new QFormLayout();
 
+    auto *storagePathPickerLayout = new QHBoxLayout();
     m_storagePathInput = new QLineEdit(QString::fromLatin1(defaultStoragePath), centralWidget);
+    m_selectStorageDirectoryButton = new QPushButton(tr("Select folder"), centralWidget);
+    storagePathPickerLayout->addWidget(m_storagePathInput, 1);
+    storagePathPickerLayout->addWidget(m_selectStorageDirectoryButton);
+
+    auto *scanDirectoryPickerLayout = new QHBoxLayout();
     m_scanDirectoryPathInput = new QLineEdit(centralWidget);
-    storageLayout->addRow(tr("Storage path"), m_storagePathInput);
-    scanDirectoryLayout->addRow(tr("Scan directory"), m_scanDirectoryPathInput);
+    m_selectScanDirectoryButton = new QPushButton(tr("Select folder"), centralWidget);
+    scanDirectoryPickerLayout->addWidget(m_scanDirectoryPathInput, 1);
+    scanDirectoryPickerLayout->addWidget(m_selectScanDirectoryButton);
+
+    storageLayout->addRow(tr("Storage path"), storagePathPickerLayout);
+    scanDirectoryLayout->addRow(tr("Scan directory"), scanDirectoryPickerLayout);
 
     inputLayout->addLayout(storageLayout, 1);
     inputLayout->addLayout(scanDirectoryLayout, 1);
@@ -348,6 +360,15 @@ void MainWindow::bindLibraryViewModel()
 {
     m_viewModel.setScanDirectoryPath(m_scanDirectoryPathInput->text());
 
+    connect(m_selectScanDirectoryButton, &QPushButton::clicked, this, [this]() {
+        const QString directory = QFileDialog::getExistingDirectory(this,
+                                                                    tr("Select scan directory"),
+                                                                    m_scanDirectoryPathInput->text());
+        if (!directory.isEmpty()) {
+            m_scanDirectoryPathInput->setText(directory);
+        }
+    });
+
     bindLineEdit(*m_scanDirectoryPathInput,
                  &ViewModel::LibraryViewModelProtocol::scanDirectoryPath,
                  &ViewModel::LibraryViewModelProtocol::setScanDirectoryPath,
@@ -376,6 +397,18 @@ void MainWindow::bindPlaylistCollectionViewModel()
 
     connect(m_storagePathInput, &QLineEdit::textChanged, this, [this](const QString &text) {
         m_playlistViewModel.setStoragePath(text);
+    });
+    connect(m_selectStorageDirectoryButton, &QPushButton::clicked, this, [this]() {
+        const QFileInfo currentStoragePath(m_storagePathInput->text());
+        const QString initialDirectory = currentStoragePath.absoluteDir().exists()
+                                             ? currentStoragePath.absoluteDir().absolutePath()
+                                             : QString();
+        const QString directory = QFileDialog::getExistingDirectory(this,
+                                                                    tr("Select storage folder"),
+                                                                    initialDirectory);
+        if (!directory.isEmpty()) {
+            m_storagePathInput->setText(QDir(directory).filePath(QStringLiteral("library.json")));
+        }
     });
     connect(&m_playlistViewModel,
             &ViewModel::PlaylistCollectionViewModelProtocol::storagePathChanged,
