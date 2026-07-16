@@ -67,3 +67,8 @@ name: Transcoded
 The `Transcoded` playlist is created on demand and saved through the ordinary `schemaVersion: 2` persistence path. If the audio file is created but playlist insertion or save fails, the processing UI reports a visible warning/error; the failure does not mark the file transcode itself as failed.
 
 Adding a transcoded output to `storage/library.json` does not replace the active playback queue and does not auto-play. Playback queue changes still require an explicit play request.
+
+
+## Playback speed and equalizer settings
+
+Playback speed and equalizer settings are session-only audio effects. They are not stored in `storage/library.json`, do not change the `schemaVersion: 2` library shape, and do not affect playlist persistence or transcoded output insertion.
