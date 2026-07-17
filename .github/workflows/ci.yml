@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+      - main
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  tests:
+    name: System Qt full test suite
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            ninja-build \
+            g++ \
+            pkg-config \
+            qt6-base-dev \
+            qt6-multimedia-dev \
+            nlohmann-json3-dev \
+            ffmpeg
+
+      - name: Configure tests
+        run: cmake --preset system-tests
+
+      - name: Build tests
+        run: cmake --build --preset system-tests -j2
+
+      - name: Run full test suite
+        run: ctest --preset system-tests --output-on-failure
+
+  app-build:
+    name: System Qt Widgets app build and smoke test
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            ninja-build \
+            g++ \
+            pkg-config \
+            qt6-base-dev \
+            qt6-multimedia-dev \
+            nlohmann-json3-dev \
+            ffmpeg
+
+      - name: Configure app
+        run: cmake --preset system-app
+
+      - name: Build app
+        run: cmake --build --preset system-app --target AudioPlayer -j2
+
+      - name: Offscreen launch smoke test
+        run: |
+          set +e
+          timeout 5s env QT_QPA_PLATFORM=offscreen build/system-app/bin/AudioPlayer
+          status=$?
+          set -e
+          if [ "$status" -eq 124 ]; then
+            echo "AudioPlayer entered the Qt event loop and was stopped by timeout."
+            exit 0
+          fi
+          exit "$status"
+
+      - name: Upload app artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AudioPlayer-linux-x64-system-qt
+          path: build/system-app/bin/AudioPlayer
+          if-no-files-found: error

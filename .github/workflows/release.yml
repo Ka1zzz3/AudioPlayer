@@ -1,0 +1,80 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  linux-release:
+    name: Build Linux release artifact
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            ninja-build \
+            g++ \
+            pkg-config \
+            qt6-base-dev \
+            qt6-multimedia-dev \
+            nlohmann-json3-dev \
+            ffmpeg
+
+      - name: Configure release build
+        run: |
+          cmake -S . -B build/release-system \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DAUDIOPLAYER_BUILD_APP=ON \
+            -DAUDIOPLAYER_ENABLE_GSTREAMER_EFFECTS=OFF
+
+      - name: Build release app
+        run: cmake --build build/release-system --target AudioPlayer -j2
+
+      - name: Smoke test release app
+        run: |
+          set +e
+          timeout 5s env QT_QPA_PLATFORM=offscreen build/release-system/bin/AudioPlayer
+          status=$?
+          set -e
+          if [ "$status" -eq 124 ]; then
+            echo "AudioPlayer entered the Qt event loop and was stopped by timeout."
+            exit 0
+          fi
+          exit "$status"
+
+      - name: Package release artifact
+        run: |
+          mkdir -p dist/AudioPlayer/bin
+          cp build/release-system/bin/AudioPlayer dist/AudioPlayer/bin/
+          cat > dist/AudioPlayer/README.txt <<'README'
+          AudioPlayer Linux x64 build against Ubuntu system Qt packages.
+          Runtime host must provide compatible Qt6 Widgets/Multimedia libraries and ffmpeg.
+          README
+          tar -czf AudioPlayer-linux-x64-system-qt.tar.gz -C dist AudioPlayer
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AudioPlayer-linux-x64-system-qt-release
+          path: AudioPlayer-linux-x64-system-qt.tar.gz
+          if-no-files-found: error
+
+      - name: Publish GitHub release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: AudioPlayer-linux-x64-system-qt.tar.gz

@@ -27,6 +27,30 @@
         "AUDIOPLAYER_BUILD_APP": "OFF"
       },
       "description": "Build model and ViewModel regression tests with AUDIOPLAYER_BUILD_APP=OFF so no GUI frontend target is required."
+    },
+    {
+      "name": "system-tests",
+      "displayName": "System Qt model/viewmodel tests",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/system-tests",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "AUDIOPLAYER_BUILD_APP": "OFF",
+        "AUDIOPLAYER_ENABLE_GSTREAMER_EFFECTS": "OFF"
+      },
+      "description": "Build all non-GUI test targets against system Qt packages with optional GStreamer effects disabled."
+    },
+    {
+      "name": "system-app",
+      "displayName": "System Qt Widgets app",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/system-app",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "AUDIOPLAYER_BUILD_APP": "ON",
+        "AUDIOPLAYER_ENABLE_GSTREAMER_EFFECTS": "OFF"
+      },
+      "description": "Build the Qt Widgets application against system Qt packages with optional GStreamer effects disabled."
     }
   ],
   "buildPresets": [
@@ -37,6 +61,14 @@
     {
       "name": "vcpkg-tests",
       "configurePreset": "vcpkg-tests"
+    },
+    {
+      "name": "system-tests",
+      "configurePreset": "system-tests"
+    },
+    {
+      "name": "system-app",
+      "configurePreset": "system-app"
     }
   ],
   "testPresets": [
@@ -50,6 +82,13 @@
     {
       "name": "vcpkg-tests",
       "configurePreset": "vcpkg-tests",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "system-tests",
+      "configurePreset": "system-tests",
       "output": {
         "outputOnFailure": true
       }
