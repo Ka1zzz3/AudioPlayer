@@ -68,7 +68,9 @@ void writeTextFile(const QString &path, const QByteArray &content)
 QByteArray readFile(const QString &path)
 {
     QFile file(path);
-    Q_ASSERT(file.open(QIODevice::ReadOnly));
+    if (!file.open(QIODevice::ReadOnly)) {
+        qFatal("Unable to open test file for reading: %s", qPrintable(path));
+    }
     return file.readAll();
 }
 

@@ -33,8 +33,13 @@ QString writeExecutable(QTemporaryDir &temporaryDir, const QString &fileName, co
 {
     const QString path = temporaryDir.filePath(fileName);
     QFile file(path);
-    Q_ASSERT(file.open(QIODevice::WriteOnly | QIODevice::Text));
-    file.write(content);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        qFatal("Unable to open fake executable for writing: %s", qPrintable(path));
+    }
+    const qint64 written = file.write(content);
+    if (written != content.size()) {
+        qFatal("Unable to write complete fake executable: %s", qPrintable(path));
+    }
     file.close();
     QFile::setPermissions(path,
                           QFileDevice::ReadOwner
