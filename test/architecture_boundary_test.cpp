@@ -12,11 +12,13 @@ class ArchitectureBoundaryTest : public QObject
     Q_OBJECT
 
 private slots:
-    void widgetsViewBindsOnlyToViewModelProtocol();
+    void widgetsViewHasZeroViewModelProtocolDependency();
     void widgetsSelectionDoesNotDrivePlaybackQueueDirectly();
     void playlistAndRepositoryDetailsDoNotLeakIntoWidgetsView();
-    void playbackBackendDoesNotLeakIntoViewOrProtocols();
-    void processingBackendDoesNotLeakIntoViewOrProtocols();
+    void viewFacingProtocolsDoNotExposeModelOrBackendTypes();
+    void playbackViewModelObservesUseCaseNotBackendService();
+    void appCompositionRootOnlyComposesAndBinds();
+    void productionViewModelsRequireInjectedUseCases();
     void audioEffectsDoNotLeakIntoStorageOrProcessingSchemas();
     void productionBuildDoesNotReferenceQmlOrQtQuick();
     void vcpkgManifestUsesWidgetsWithoutQmlDependencies();
@@ -60,39 +62,42 @@ QStringList productionFiles()
 
 } // namespace
 
-void ArchitectureBoundaryTest::widgetsViewBindsOnlyToViewModelProtocol()
+void ArchitectureBoundaryTest::widgetsViewHasZeroViewModelProtocolDependency()
 {
     const QString mainWindowHeader = readTextFile(QStringLiteral("src/View/MainWindow.h"));
     const QString mainWindowSource = readTextFile(QStringLiteral("src/View/MainWindow.cpp"));
     const QString viewText = mainWindowHeader + QLatin1Char('\n') + mainWindowSource;
 
-    QVERIFY2(!viewText.contains(QStringLiteral("#include \"Model/")), "View must not include Model headers.");
-    const QStringList forbiddenConcreteViewModels{
-        QStringLiteral("#include \"ViewModel/LibraryViewModel.h\""),
-        QStringLiteral("#include \"ViewModel/PlaybackViewModel.h\""),
-        QStringLiteral("#include \"ViewModel/AudioEffectsViewModel.h\""),
-        QStringLiteral("#include \"ViewModel/PlaylistCollectionViewModel.h\""),
-        QStringLiteral("#include \"ViewModel/ProcessingViewModel.h\""),
+    const QStringList forbiddenTokens{
+        QStringLiteral("#include \"Model/"),
+        QStringLiteral("#include \"ViewModel/"),
+        QStringLiteral("ViewModel::"),
+        QStringLiteral("ViewModelProtocol"),
+        QStringLiteral("scanCommand()"),
+        QStringLiteral("loadCommand()"),
+        QStringLiteral("saveCommand()"),
+        QStringLiteral("pauseCommand()"),
+        QStringLiteral("resetPlaybackRateCommand()"),
+        QStringLiteral("enqueueCommand()"),
+        QStringLiteral("seekTo("),
+        QStringLiteral("setVolumePercent("),
+        QStringLiteral("setPlaybackRate("),
+        QStringLiteral("setEqualizerEnabled("),
+        QStringLiteral("setEqualizerBandGain("),
+        QStringLiteral("setEqualizerPreset("),
+        QStringLiteral("setInputFilePaths("),
+        QStringLiteral("setOutputDirectory("),
+        QStringLiteral("setSelectedTaskRow("),
     };
-    for (const QString &token : forbiddenConcreteViewModels) {
-        QVERIFY2(!viewText.contains(token),
-                 qPrintable(QStringLiteral("View must depend on protocols, not concrete ViewModel token %1").arg(token)));
-    }
-    QVERIFY2(viewText.contains(QStringLiteral("LibraryViewModelProtocol")),
-             "View should bind through the library ViewModel protocol.");
-    QVERIFY2(viewText.contains(QStringLiteral("PlaylistCollectionViewModelProtocol")),
-             "View should bind through the playlist ViewModel protocol.");
-    QVERIFY2(viewText.contains(QStringLiteral("PlaybackViewModelProtocol")),
-             "View should bind through the playback ViewModel protocol.");
-    QVERIFY2(viewText.contains(QStringLiteral("AudioEffectsViewModelProtocol")),
-             "View should bind through the audio effects ViewModel protocol.");
-    QVERIFY2(viewText.contains(QStringLiteral("ProcessingViewModelProtocol")),
-             "View should bind through the processing ViewModel protocol.");
-    QVERIFY2(viewText.contains(QStringLiteral("ViewCommand")), "View should bind button intents through ViewCommand.");
 
-    const QRegularExpression directBusinessCall(QStringLiteral(R"(\.\s*(load|save|refresh|scanDirectory)\s*\()"));
-    QVERIFY2(!directBusinessCall.match(viewText).hasMatch(),
-             "View must not directly call load/save/refresh/scanDirectory business methods.");
+    for (const QString &token : forbiddenTokens) {
+        QVERIFY2(!viewText.contains(token),
+                 qPrintable(QStringLiteral("View must expose binding ports/signals only; forbidden token %1").arg(token)));
+    }
+
+    QVERIFY2(viewText.contains(QStringLiteral("setLibraryCommands")), "View should expose command injection ports.");
+    QVERIFY2(viewText.contains(QStringLiteral("seekRequested")), "View should expose user-intent signals.");
+    QVERIFY2(viewText.contains(QStringLiteral("ViewCommand")), "View should execute injected ViewCommand objects.");
 }
 
 void ArchitectureBoundaryTest::widgetsSelectionDoesNotDrivePlaybackQueueDirectly()
@@ -136,45 +141,9 @@ void ArchitectureBoundaryTest::playlistAndRepositoryDetailsDoNotLeakIntoWidgetsV
     }
 }
 
-void ArchitectureBoundaryTest::playbackBackendDoesNotLeakIntoViewOrProtocols()
+void ArchitectureBoundaryTest::viewFacingProtocolsDoNotExposeModelOrBackendTypes()
 {
     const QStringList filesToCheck{
-        QStringLiteral("src/View/MainWindow.h"),
-        QStringLiteral("src/View/MainWindow.cpp"),
-        QStringLiteral("src/ViewModel/LibraryViewModelProtocol.h"),
-        QStringLiteral("src/ViewModel/PlaybackViewModelProtocol.h"),
-        QStringLiteral("src/ViewModel/AudioEffectsViewModelProtocol.h"),
-        QStringLiteral("src/ViewModel/PlaylistCollectionViewModelProtocol.h"),
-    };
-    const QStringList forbiddenTokens{
-        QStringLiteral("QMediaPlayer"),
-        QStringLiteral("QAudioOutput"),
-        QStringLiteral("QMediaPlaylist"),
-        QStringLiteral("GStreamer"),
-        QStringLiteral("GstElement"),
-        QStringLiteral("gst_"),
-        QStringLiteral("#include <gst/"),
-        QStringLiteral("#include <QMedia"),
-        QStringLiteral("#include <QAudioOutput"),
-        QStringLiteral("#include \"Model/Service/QtMultimediaPlaybackService.h\""),
-    };
-
-    for (const QString &relativePath : filesToCheck) {
-        const QString text = readTextFile(relativePath);
-        for (const QString &token : forbiddenTokens) {
-            QVERIFY2(!text.contains(token),
-                     qPrintable(QStringLiteral("%1 must not expose playback backend token %2")
-                                     .arg(relativePath, token)));
-        }
-    }
-}
-
-
-void ArchitectureBoundaryTest::processingBackendDoesNotLeakIntoViewOrProtocols()
-{
-    const QStringList filesToCheck{
-        QStringLiteral("src/View/MainWindow.h"),
-        QStringLiteral("src/View/MainWindow.cpp"),
         QStringLiteral("src/ViewModel/LibraryViewModelProtocol.h"),
         QStringLiteral("src/ViewModel/PlaybackViewModelProtocol.h"),
         QStringLiteral("src/ViewModel/AudioEffectsViewModelProtocol.h"),
@@ -182,24 +151,86 @@ void ArchitectureBoundaryTest::processingBackendDoesNotLeakIntoViewOrProtocols()
         QStringLiteral("src/ViewModel/ProcessingViewModelProtocol.h"),
     };
     const QStringList forbiddenTokens{
-        QStringLiteral("QProcess"),
-        QStringLiteral("ffmpeg"),
-        QStringLiteral("ffprobe"),
-        QStringLiteral("FfmpegTranscodingBackend"),
+        QStringLiteral("#include \"Model/"),
+        QStringLiteral("Model::"),
+        QStringLiteral("AudioFile"),
+        QStringLiteral("LibraryDocument"),
+        QStringLiteral("LibraryPlaylist"),
+        QStringLiteral("UseCase"),
+        QStringLiteral("IPlaybackService"),
         QStringLiteral("ITranscodingBackend"),
-        QStringLiteral("ProcessingUseCase"),
+        QStringLiteral("FfmpegTranscodingBackend"),
+        QStringLiteral("QProcess"),
+        QStringLiteral("QMediaPlayer"),
+        QStringLiteral("QAudioOutput"),
+        QStringLiteral("GStreamer"),
+        QStringLiteral("GstElement"),
+        QStringLiteral("gst_"),
     };
 
     for (const QString &relativePath : filesToCheck) {
         const QString text = readTextFile(relativePath);
         for (const QString &token : forbiddenTokens) {
             QVERIFY2(!text.contains(token),
-                     qPrintable(QStringLiteral("%1 must not expose processing backend token %2")
-                                     .arg(relativePath, token)));
+                     qPrintable(QStringLiteral("%1 must not expose Model/backend token %2").arg(relativePath, token)));
         }
     }
 }
 
+void ArchitectureBoundaryTest::playbackViewModelObservesUseCaseNotBackendService()
+{
+    const QString playbackViewModelText = readTextFile(QStringLiteral("src/ViewModel/PlaybackViewModel.h"))
+                                      + QLatin1Char('\n')
+                                      + readTextFile(QStringLiteral("src/ViewModel/PlaybackViewModel.cpp"));
+    QVERIFY2(!playbackViewModelText.contains(QStringLiteral("IPlaybackService")),
+             "PlaybackViewModel must observe PlaybackUseCase, not backend service.");
+}
+
+void ArchitectureBoundaryTest::appCompositionRootOnlyComposesAndBinds()
+{
+    const QString appText = readTextFile(QStringLiteral("src/App/AppCompositionRoot.cpp"));
+    const QStringList forbiddenTokens{
+        QStringLiteral("taskUpdated"),
+        QStringLiteral("ProcessingTaskStatus::Succeeded"),
+        QStringLiteral("replaceQueue"),
+        QStringLiteral("setCurrentPlaybackIndex"),
+        QStringLiteral("currentVisibleSongsChanged"),
+        QStringLiteral("playRequested"),
+        QStringLiteral("reportIntegrationWarning"),
+        QStringLiteral("AudioFile("),
+        QStringLiteral("QSet"),
+    };
+    for (const QString &token : forbiddenTokens) {
+        QVERIFY2(!appText.contains(token),
+                 qPrintable(QStringLiteral("AppCompositionRoot must not own workflow token %1").arg(token)));
+    }
+}
+
+
+
+void ArchitectureBoundaryTest::productionViewModelsRequireInjectedUseCases()
+{
+    const QStringList filesToCheck{
+        QStringLiteral("src/ViewModel/LibraryViewModel.h"),
+        QStringLiteral("src/ViewModel/LibraryViewModel.cpp"),
+        QStringLiteral("src/ViewModel/PlaylistCollectionViewModel.h"),
+        QStringLiteral("src/ViewModel/PlaylistCollectionViewModel.cpp"),
+    };
+    const QStringList forbiddenTokens{
+        QStringLiteral("LibraryViewModel(QObject"),
+        QStringLiteral("PlaylistCollectionViewModel(QObject"),
+        QStringLiteral("std::make_shared<ModelService::LibraryUseCase>"),
+        QStringLiteral("std::make_shared<ModelService::PlaylistCollectionUseCase>"),
+    };
+
+    for (const QString &relativePath : filesToCheck) {
+        const QString text = readTextFile(relativePath);
+        for (const QString &token : forbiddenTokens) {
+            QVERIFY2(!text.contains(token),
+                     qPrintable(QStringLiteral("%1 must require App/test injection; forbidden token %2").arg(relativePath, token)));
+        }
+    }
+}
 
 void ArchitectureBoundaryTest::audioEffectsDoNotLeakIntoStorageOrProcessingSchemas()
 {

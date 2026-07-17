@@ -35,7 +35,6 @@ class PlaylistCollectionViewModel : public PlaylistCollectionViewModelProtocol
     Q_PROPERTY(AudioPlayer::Common::ViewCommand *playVisiblePlaylistCommand READ playVisiblePlaylistCommand CONSTANT)
 
 public:
-    explicit PlaylistCollectionViewModel(QObject *parent = nullptr);
     explicit PlaylistCollectionViewModel(std::shared_ptr<const ModelService::PlaylistCollectionUseCase> useCase,
                                          QObject *parent = nullptr);
 
@@ -66,6 +65,12 @@ public:
 
     void setCurrentVisibleSongs(QVector<Model::AudioFile> songs);
     [[nodiscard]] QVector<Model::AudioFile> currentVisibleSongsSnapshot() const;
+
+signals:
+    void currentVisibleSongsChanged(const QVector<AudioPlayer::Model::AudioFile> &songs);
+    void playRequested(const QString &playlistId,
+                       const QVector<AudioPlayer::Model::AudioFile> &songsSnapshot,
+                       int startIndex);
 
 private:
     bool executeLoad();

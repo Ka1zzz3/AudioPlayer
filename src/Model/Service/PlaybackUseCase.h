@@ -21,6 +21,12 @@ public:
     [[nodiscard]] const QVector<AudioFile> &queue() const noexcept;
     [[nodiscard]] std::optional<AudioFile> currentTrack() const;
     [[nodiscard]] bool hasQueue() const noexcept;
+    [[nodiscard]] PlaybackBackendState playbackState() const noexcept;
+    [[nodiscard]] qint64 positionMs() const noexcept;
+    [[nodiscard]] qint64 durationMs() const noexcept;
+    [[nodiscard]] bool seekable() const noexcept;
+    [[nodiscard]] float volume() const noexcept;
+    [[nodiscard]] bool muted() const noexcept;
 
 public slots:
     void setQueue(QVector<AudioFile> queue);
@@ -41,6 +47,12 @@ signals:
     void currentTrackChanged(int index, const QString &title, const QString &filePath);
     void playbackErrorOccurred(const QString &message);
     void playbackStopped();
+    void playbackStateChanged(AudioPlayer::Model::Service::PlaybackBackendState state);
+    void positionChanged(qint64 positionMs);
+    void durationChanged(qint64 durationMs);
+    void seekableChanged(bool seekable);
+    void volumeChanged(float volume);
+    void mutedChanged(bool muted);
 
 private slots:
     void handlePlaybackEnded();

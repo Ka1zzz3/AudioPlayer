@@ -1,12 +1,6 @@
 #include "View/MainWindow.h"
 
 #include "Common/ViewCommand.h"
-#include "ViewModel/AudioEffectsViewModelProtocol.h"
-#include "ViewModel/LibraryViewModelProtocol.h"
-#include "ViewModel/PlaybackViewModelProtocol.h"
-#include "ViewModel/PlaylistCollectionViewModelProtocol.h"
-#include "ViewModel/ProcessingViewModelProtocol.h"
-#include "ViewModel/PlaybackState.h"
 
 #include <QAbstractItemView>
 #include <QAbstractItemModel>
@@ -17,12 +11,13 @@
 #include <QDir>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QFont>
 #include <QFormLayout>
 #include <QItemSelectionModel>
 #include <QLabel>
 #include <QLineEdit>
-#include <QMessageBox>
 #include <QListView>
+#include <QMessageBox>
 #include <QPushButton>
 #include <QSignalBlocker>
 #include <QSlider>
@@ -30,7 +25,6 @@
 #include <QWidget>
 
 #include <algorithm>
-#include <array>
 #include <cmath>
 #include <limits>
 
@@ -71,26 +65,16 @@ double gainFromSliderValue(int value)
 
 } // namespace
 
-MainWindow::MainWindow(ViewModel::LibraryViewModelProtocol &libraryViewModel,
-                       ViewModel::PlaylistCollectionViewModelProtocol &playlistViewModel,
-                       ViewModel::PlaybackViewModelProtocol &playbackViewModel,
-                       ViewModel::AudioEffectsViewModelProtocol &audioEffectsViewModel,
-                       ViewModel::ProcessingViewModelProtocol &processingViewModel,
-                       QWidget *parent)
+MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
-    , m_viewModel(libraryViewModel)
-    , m_playlistViewModel(playlistViewModel)
-    , m_playbackViewModel(playbackViewModel)
-    , m_audioEffectsViewModel(audioEffectsViewModel)
-    , m_processingViewModel(processingViewModel)
 {
     buildUi();
-    bindViewModel();
+    bindUiSignals();
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
-    if (!m_processingViewModel.hasPendingOrRunningTasks()) {
+    if (!m_processingHasPendingOrRunningTasks) {
         QMainWindow::closeEvent(event);
         return;
     }
@@ -101,8 +85,9 @@ void MainWindow::closeEvent(QCloseEvent *event)
                                               QMessageBox::Yes | QMessageBox::No,
                                               QMessageBox::No);
     if (answer == QMessageBox::Yes) {
-        if (m_processingViewModel.cancelAllCommand() != nullptr) {
-            m_processingViewModel.cancelAllCommand()->execute();
+        emit closeWithPendingProcessingRequested();
+        if (m_processingCommands.cancelAll != nullptr) {
+            m_processingCommands.cancelAll->execute();
         }
         QMainWindow::closeEvent(event);
         return;
@@ -179,7 +164,6 @@ void MainWindow::buildUi()
     auto *playlistLayout = new QHBoxLayout();
     m_playlistListView = new QListView(centralWidget);
     m_playlistListView->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    m_playlistListView->setModel(m_playlistViewModel.playlists());
     playlistLayout->addWidget(m_playlistListView, 1);
 
     auto *playlistControlsLayout = new QVBoxLayout();
@@ -207,7 +191,6 @@ void MainWindow::buildUi()
 
     m_songListView = new QListView(centralWidget);
     m_songListView->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    m_songListView->setModel(m_viewModel.songs());
     mainLayout->addWidget(m_songListView, 1);
 
     auto *playbackTitleLabel = new QLabel(tr("Playback"), centralWidget);
@@ -341,24 +324,28 @@ void MainWindow::buildUi()
 
     m_processingTaskListView = new QListView(centralWidget);
     m_processingTaskListView->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    m_processingTaskListView->setModel(m_processingViewModel.tasks());
     mainLayout->addWidget(m_processingTaskListView, 1);
 
     setCentralWidget(centralWidget);
 }
 
-void MainWindow::bindViewModel()
+void MainWindow::bindUiSignals()
 {
-    bindLibraryViewModel();
-    bindPlaylistCollectionViewModel();
-    bindPlaybackViewModel();
-    bindAudioEffectsViewModel();
-    bindProcessingViewModel();
-}
-
-void MainWindow::bindLibraryViewModel()
-{
-    m_viewModel.setScanDirectoryPath(m_scanDirectoryPathInput->text());
+    connect(m_storagePathInput, &QLineEdit::textChanged, this, [this](const QString &text) {
+        if (!m_syncingStoragePath) {
+            emit storagePathEdited(text);
+        }
+    });
+    connect(m_scanDirectoryPathInput, &QLineEdit::textChanged, this, [this](const QString &text) {
+        if (!m_syncingScanPath) {
+            emit scanPathEdited(text);
+        }
+    });
+    connect(m_playlistNameInput, &QLineEdit::textChanged, this, [this](const QString &text) {
+        if (!m_syncingPlaylistName) {
+            emit playlistNameEdited(text);
+        }
+    });
 
     connect(m_selectScanDirectoryButton, &QPushButton::clicked, this, [this]() {
         const QString directory = QFileDialog::getExistingDirectory(this,
@@ -367,36 +354,6 @@ void MainWindow::bindLibraryViewModel()
         if (!directory.isEmpty()) {
             m_scanDirectoryPathInput->setText(directory);
         }
-    });
-
-    bindLineEdit(*m_scanDirectoryPathInput,
-                 &ViewModel::LibraryViewModelProtocol::scanDirectoryPath,
-                 &ViewModel::LibraryViewModelProtocol::setScanDirectoryPath,
-                 &ViewModel::LibraryViewModelProtocol::scanDirectoryPathChanged);
-
-    bindButton(*m_scanButton, m_viewModel.scanCommand());
-    bindButton(*m_refreshButton, m_viewModel.refreshCommand());
-
-    connect(&m_viewModel, &ViewModel::LibraryViewModelProtocol::countChanged, this, &MainWindow::updateCount);
-    connect(&m_viewModel,
-            &ViewModel::LibraryViewModelProtocol::statusMessageChanged,
-            this,
-            &MainWindow::updateStatusMessage);
-    connect(&m_viewModel, &ViewModel::LibraryViewModelProtocol::lastErrorChanged, this, &MainWindow::updateLastError);
-    connect(&m_viewModel, &ViewModel::LibraryViewModelProtocol::warningsChanged, this, &MainWindow::updateWarnings);
-
-    updateCount();
-    updateStatusMessage();
-    updateLastError();
-    updateWarnings();
-}
-
-void MainWindow::bindPlaylistCollectionViewModel()
-{
-    m_playlistViewModel.setStoragePath(m_storagePathInput->text());
-
-    connect(m_storagePathInput, &QLineEdit::textChanged, this, [this](const QString &text) {
-        m_playlistViewModel.setStoragePath(text);
     });
     connect(m_selectStorageDirectoryButton, &QPushButton::clicked, this, [this]() {
         const QFileInfo currentStoragePath(m_storagePathInput->text());
@@ -410,483 +367,318 @@ void MainWindow::bindPlaylistCollectionViewModel()
             m_storagePathInput->setText(QDir(directory).filePath(QStringLiteral("library.json")));
         }
     });
-    connect(&m_playlistViewModel,
-            &ViewModel::PlaylistCollectionViewModelProtocol::storagePathChanged,
-            this,
-            [this]() {
-                if (m_storagePathInput->text() != m_playlistViewModel.storagePath()) {
-                    m_storagePathInput->setText(m_playlistViewModel.storagePath());
-                }
-            });
 
-    connect(m_playlistNameInput, &QLineEdit::textChanged, this, [this](const QString &text) {
-        m_playlistViewModel.setNewPlaylistName(text);
-    });
-    connect(&m_playlistViewModel,
-            &ViewModel::PlaylistCollectionViewModelProtocol::newPlaylistNameChanged,
-            this,
-            [this]() {
-                if (m_playlistNameInput->text() != m_playlistViewModel.newPlaylistName()) {
-                    m_playlistNameInput->setText(m_playlistViewModel.newPlaylistName());
-                }
-            });
-
-    bindButton(*m_loadButton, m_playlistViewModel.loadCommand());
-    bindButton(*m_saveButton, m_playlistViewModel.saveCommand());
-    bindButton(*m_createPlaylistButton, m_playlistViewModel.createPlaylistCommand());
-    bindButton(*m_deletePlaylistButton, m_playlistViewModel.deletePlaylistCommand());
-    bindButton(*m_addSongsToPlaylistButton, m_playlistViewModel.addSongsCommand());
-    bindButton(*m_playSelectedSongButton, m_playlistViewModel.playSelectedSongCommand());
-    bindButton(*m_playVisiblePlaylistButton, m_playlistViewModel.playVisiblePlaylistCommand());
-
-    connect(m_playlistListView->selectionModel(),
-            &QItemSelectionModel::currentChanged,
-            this,
-            [this](const QModelIndex &current) {
-                if (!current.isValid()) {
-                    return;
-                }
-
-                const QString playlistId = current.data(m_playlistViewModel.playlistIdRole()).toString();
-                if (playlistId.isEmpty()) {
-                    return;
-                }
-
-                m_playlistViewModel.setSelectedPlaylistId(playlistId);
-                if (m_playlistViewModel.switchPlaylistCommand() != nullptr) {
-                    m_playlistViewModel.switchPlaylistCommand()->execute();
-                }
-            });
-
-    connect(m_songListView->selectionModel(),
-            &QItemSelectionModel::currentChanged,
-            this,
-            [this](const QModelIndex &current) {
-                m_playlistViewModel.setSelectedSongIndex(current.isValid() ? current.row() : -1);
-            });
-
-    connect(&m_playlistViewModel,
-            &ViewModel::PlaylistCollectionViewModelProtocol::visiblePlaylistChanged,
-            this,
-            &MainWindow::updatePlaylistSelection);
-    connect(&m_playlistViewModel,
-            &ViewModel::PlaylistCollectionViewModelProtocol::statusMessageChanged,
-            this,
-            &MainWindow::updatePlaylistStatusMessage);
-    connect(&m_playlistViewModel,
-            &ViewModel::PlaylistCollectionViewModelProtocol::lastErrorChanged,
-            this,
-            &MainWindow::updatePlaylistLastError);
-
-    updatePlaylistSelection();
-    updatePlaylistStatusMessage();
-    updatePlaylistLastError();
-}
-
-void MainWindow::bindPlaybackViewModel()
-{
-    connect(m_pauseButton, &QPushButton::clicked, this, [this]() {
-        if (m_playbackViewModel.playbackState() == ViewModel::PlaybackState::Playing) {
-            if (m_playbackViewModel.pauseCommand() != nullptr) {
-                m_playbackViewModel.pauseCommand()->execute();
-            }
-            return;
-        }
-
-        if (m_playbackViewModel.playbackState() == ViewModel::PlaybackState::Paused
-            && m_playbackViewModel.playCommand() != nullptr) {
-            m_playbackViewModel.playCommand()->execute();
-        }
-    });
-    bindButton(*m_stopButton, m_playbackViewModel.stopCommand());
-    bindButton(*m_previousButton, m_playbackViewModel.previousCommand());
-    bindButton(*m_nextButton, m_playbackViewModel.nextCommand());
-    bindButton(*m_muteButton, m_playbackViewModel.toggleMuteCommand());
-
-    connect(&m_playbackViewModel, &ViewModel::PlaybackViewModelProtocol::playbackStateChanged, this, &MainWindow::updatePlaybackState);
-    connect(&m_playbackViewModel,
-            &ViewModel::PlaybackViewModelProtocol::currentPlaybackTitleChanged,
-            this,
-            &MainWindow::updateCurrentPlaybackTrack);
-    connect(&m_playbackViewModel,
-            &ViewModel::PlaybackViewModelProtocol::currentPlaybackTitleChanged,
-            this,
-            &MainWindow::updatePlaybackState);
-    connect(&m_playbackViewModel, &ViewModel::PlaybackViewModelProtocol::positionMsChanged, this, &MainWindow::updatePlaybackPosition);
-    connect(&m_playbackViewModel, &ViewModel::PlaybackViewModelProtocol::durationMsChanged, this, &MainWindow::updatePlaybackDuration);
-    connect(&m_playbackViewModel, &ViewModel::PlaybackViewModelProtocol::seekableChanged, this, &MainWindow::updatePlaybackSeekable);
-    connect(&m_playbackViewModel, &ViewModel::PlaybackViewModelProtocol::volumePercentChanged, this, &MainWindow::updatePlaybackVolume);
-    connect(&m_playbackViewModel, &ViewModel::PlaybackViewModelProtocol::mutedChanged, this, &MainWindow::updatePlaybackMuted);
-    connect(&m_playbackViewModel,
-            &ViewModel::PlaybackViewModelProtocol::lastPlaybackErrorChanged,
-            this,
-            &MainWindow::updatePlaybackError);
-    connect(&m_playbackViewModel,
-            &ViewModel::PlaybackViewModelProtocol::statusMessageChanged,
-            this,
-            &MainWindow::updatePlaybackStatusMessage);
-
-    connect(m_progressSlider, &QSlider::sliderPressed, this, [this]() {
-        m_userSeeking = true;
-    });
+    connect(m_progressSlider, &QSlider::sliderPressed, this, [this]() { m_userSeeking = true; });
     connect(m_progressSlider, &QSlider::sliderReleased, this, [this]() {
         m_userSeeking = false;
-        m_playbackViewModel.seekTo(m_progressSlider->value());
-        updatePlaybackPosition();
+        emit seekRequested(m_progressSlider->value());
+        updatePlaybackPositionLabel();
     });
     connect(m_progressSlider, &QSlider::sliderMoved, this, [this](int value) {
-        m_playbackPositionLabel->setText(tr("%1 / %2").arg(formatTime(value), formatTime(m_playbackViewModel.durationMs())));
+        m_playbackPositionLabel->setText(tr("%1 / %2").arg(formatTime(value), formatTime(m_playbackDurationMs)));
     });
-
     connect(m_volumeSlider, &QSlider::valueChanged, this, [this](int value) {
         if (!m_syncingVolume) {
-            m_playbackViewModel.setVolumePercent(value);
+            emit volumeChangedByUser(value);
         }
     });
 
-    updatePlaybackState();
-    updateCurrentPlaybackTrack();
-    updatePlaybackDuration();
-    updatePlaybackPosition();
-    updatePlaybackSeekable();
-    updatePlaybackVolume();
-    updatePlaybackMuted();
-    updatePlaybackError();
-    updatePlaybackStatusMessage();
-}
-
-
-void MainWindow::bindAudioEffectsViewModel()
-{
-    m_playbackRateComboBox->clear();
-    for (const QString &label : m_audioEffectsViewModel.playbackRateLabels()) {
-        m_playbackRateComboBox->addItem(label, playbackRateFromLabel(label));
-    }
-
-    m_equalizerPresetComboBox->clear();
-    m_equalizerPresetComboBox->addItems(m_audioEffectsViewModel.equalizerPresetLabels());
-
-    bindButton(*m_resetPlaybackRateButton, m_audioEffectsViewModel.resetPlaybackRateCommand());
-    bindButton(*m_resetEqualizerButton, m_audioEffectsViewModel.resetEqualizerCommand());
-
-    connect(m_playbackRateComboBox,
-            QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this,
-            [this](int index) {
-                if (m_syncingAudioEffects || index < 0) {
-                    return;
-                }
-                m_audioEffectsViewModel.setPlaybackRate(m_playbackRateComboBox->itemData(index).toDouble());
-            });
-
+    connect(m_playbackRateComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int index) {
+        if (!m_syncingAudioEffects && index >= 0) {
+            emit playbackRateSelected(m_playbackRateComboBox->itemData(index).toDouble());
+        }
+    });
     connect(m_equalizerEnabledCheckBox, &QCheckBox::toggled, this, [this](bool enabled) {
         if (!m_syncingAudioEffects) {
-            m_audioEffectsViewModel.setEqualizerEnabled(enabled);
+            emit equalizerEnabledChangedByUser(enabled);
         }
     });
-
     for (int index = 0; index < static_cast<int>(m_equalizerSliders.size()); ++index) {
         QSlider *slider = m_equalizerSliders[static_cast<std::size_t>(index)];
         connect(slider, &QSlider::valueChanged, this, [this, index](int value) {
             if (!m_syncingAudioEffects) {
-                m_audioEffectsViewModel.setEqualizerBandGain(index, gainFromSliderValue(value));
+                emit equalizerBandGainChanged(index, gainFromSliderValue(value));
             }
         });
     }
-
     connect(m_equalizerPresetComboBox, &QComboBox::currentTextChanged, this, [this](const QString &preset) {
         if (!m_syncingAudioEffects) {
-            m_audioEffectsViewModel.setEqualizerPreset(preset);
+            emit equalizerPresetSelected(preset);
         }
     });
-
-    connect(&m_audioEffectsViewModel,
-            &ViewModel::AudioEffectsViewModelProtocol::capabilitiesChanged,
-            this,
-            &MainWindow::updateAudioEffectsCapabilities);
-    connect(&m_audioEffectsViewModel,
-            &ViewModel::AudioEffectsViewModelProtocol::playbackRateChanged,
-            this,
-            &MainWindow::updateAudioEffectsPlaybackRate);
-    connect(&m_audioEffectsViewModel,
-            &ViewModel::AudioEffectsViewModelProtocol::equalizerEnabledChanged,
-            this,
-            &MainWindow::updateAudioEffectsEqualizerEnabled);
-    connect(&m_audioEffectsViewModel,
-            &ViewModel::AudioEffectsViewModelProtocol::equalizerBandGainsChanged,
-            this,
-            &MainWindow::updateAudioEffectsBandGains);
-    connect(&m_audioEffectsViewModel,
-            &ViewModel::AudioEffectsViewModelProtocol::equalizerPresetChanged,
-            this,
-            &MainWindow::updateAudioEffectsPreset);
-    connect(&m_audioEffectsViewModel,
-            &ViewModel::AudioEffectsViewModelProtocol::statusMessageChanged,
-            this,
-            &MainWindow::updateAudioEffectsStatusMessage);
-    connect(&m_audioEffectsViewModel,
-            &ViewModel::AudioEffectsViewModelProtocol::lastErrorChanged,
-            this,
-            &MainWindow::updateAudioEffectsLastError);
-
-    updateAudioEffectsCapabilities();
-    updateAudioEffectsPlaybackRate();
-    updateAudioEffectsEqualizerEnabled();
-    updateAudioEffectsBandGains();
-    updateAudioEffectsPreset();
-    updateAudioEffectsStatusMessage();
-    updateAudioEffectsLastError();
-}
-
-void MainWindow::bindProcessingViewModel()
-{
-    bindButton(*m_enqueueProcessingButton, m_processingViewModel.enqueueCommand());
-    bindButton(*m_cancelSelectedProcessingButton, m_processingViewModel.cancelSelectedCommand());
-    bindButton(*m_cancelAllProcessingButton, m_processingViewModel.cancelAllCommand());
 
     connect(m_selectProcessingInputsButton, &QPushButton::clicked, this, [this]() {
         const QStringList files = QFileDialog::getOpenFileNames(this, tr("Select audio files to transcode"));
         if (!files.isEmpty()) {
-            m_processingViewModel.setInputFilePaths(files);
+            emit processingInputsSelected(files);
         }
     });
     connect(m_selectProcessingOutputDirectoryButton, &QPushButton::clicked, this, [this]() {
         const QString directory = QFileDialog::getExistingDirectory(this, tr("Select transcode output directory"));
         if (!directory.isEmpty()) {
-            m_processingViewModel.setOutputDirectory(directory);
+            emit processingOutputDirectorySelected(directory);
         }
     });
     connect(m_processingFormatComboBox, &QComboBox::currentTextChanged, this, [this](const QString &format) {
-        m_processingViewModel.setOutputFormat(format);
-    });
-    connect(m_processingTaskListView->selectionModel(),
-            &QItemSelectionModel::currentChanged,
-            this,
-            [this](const QModelIndex &current) {
-                m_processingViewModel.setSelectedTaskRow(current.isValid() ? current.row() : -1);
-            });
-
-    connect(&m_processingViewModel,
-            &ViewModel::ProcessingViewModelProtocol::inputFilePathsChanged,
-            this,
-            &MainWindow::updateProcessingInputSummary);
-    connect(&m_processingViewModel,
-            &ViewModel::ProcessingViewModelProtocol::outputDirectoryChanged,
-            this,
-            &MainWindow::updateProcessingOutputDirectory);
-    connect(&m_processingViewModel,
-            &ViewModel::ProcessingViewModelProtocol::outputFormatChanged,
-            this,
-            &MainWindow::updateProcessingOutputFormat);
-    connect(&m_processingViewModel,
-            &ViewModel::ProcessingViewModelProtocol::hasPendingOrRunningTasksChanged,
-            this,
-            &MainWindow::updateProcessingActiveState);
-    connect(&m_processingViewModel,
-            &ViewModel::ProcessingViewModelProtocol::statusMessageChanged,
-            this,
-            &MainWindow::updateProcessingStatusMessage);
-    connect(&m_processingViewModel,
-            &ViewModel::ProcessingViewModelProtocol::lastErrorChanged,
-            this,
-            &MainWindow::updateProcessingLastError);
-
-    updateProcessingInputSummary();
-    updateProcessingOutputDirectory();
-    updateProcessingOutputFormat();
-    updateProcessingActiveState();
-    updateProcessingStatusMessage();
-    updateProcessingLastError();
-}
-
-void MainWindow::bindLineEdit(QLineEdit &lineEdit,
-                              const QString &(ViewModel::LibraryViewModelProtocol::*getter)() const noexcept,
-                              void (ViewModel::LibraryViewModelProtocol::*setter)(QString),
-                              void (ViewModel::LibraryViewModelProtocol::*changedSignal)())
-{
-    connect(&lineEdit, &QLineEdit::textChanged, this, [this, setter](const QString &text) {
-        (m_viewModel.*setter)(text);
-    });
-
-    connect(&m_viewModel, changedSignal, this, [this, &lineEdit, getter]() {
-        const QString &value = (m_viewModel.*getter)();
-        if (lineEdit.text() != value) {
-            lineEdit.setText(value);
+        if (!m_syncingProcessingFormat) {
+            emit processingFormatSelected(format);
         }
     });
 }
 
-void MainWindow::bindButton(QPushButton &button, Common::ViewCommand *command)
+void MainWindow::setLibraryCommands(const LibraryCommands &commands)
 {
-    if (command == nullptr) {
-        button.setEnabled(false);
-        return;
-    }
+    m_libraryCommands = commands;
+    bindButton(*m_scanButton, m_libraryCommands.scan);
+    bindButton(*m_refreshButton, m_libraryCommands.refresh);
+}
 
-    button.setEnabled(command->isEnabled());
-    connect(&button, &QPushButton::clicked, command, &Common::ViewCommand::execute);
-    connect(command, &Common::ViewCommand::enabledChanged, &button, [&button, command]() {
-        button.setEnabled(command->isEnabled());
+void MainWindow::setPlaylistCommands(const PlaylistCommands &commands)
+{
+    m_playlistCommands = commands;
+    bindButton(*m_loadButton, m_playlistCommands.load);
+    bindButton(*m_saveButton, m_playlistCommands.save);
+    bindButton(*m_createPlaylistButton, m_playlistCommands.create);
+    bindButton(*m_deletePlaylistButton, m_playlistCommands.deleteSelected);
+    bindButton(*m_addSongsToPlaylistButton, m_playlistCommands.addSelectedSongs);
+    bindButton(*m_playSelectedSongButton, m_playlistCommands.playSelectedSong);
+    bindButton(*m_playVisiblePlaylistButton, m_playlistCommands.playVisiblePlaylist);
+}
+
+void MainWindow::setPlaybackCommands(const PlaybackCommands &commands)
+{
+    m_playbackCommands = commands;
+    bindButton(*m_pauseButton, m_playbackCommands.pauseResume);
+    bindButton(*m_stopButton, m_playbackCommands.stop);
+    bindButton(*m_previousButton, m_playbackCommands.previous);
+    bindButton(*m_nextButton, m_playbackCommands.next);
+    bindButton(*m_muteButton, m_playbackCommands.toggleMute);
+}
+
+void MainWindow::setAudioEffectsCommands(const AudioEffectsCommands &commands)
+{
+    m_audioEffectsCommands = commands;
+    bindButton(*m_resetPlaybackRateButton, m_audioEffectsCommands.resetPlaybackRate);
+    bindButton(*m_resetEqualizerButton, m_audioEffectsCommands.resetEqualizer);
+}
+
+void MainWindow::setProcessingCommands(const ProcessingCommands &commands)
+{
+    m_processingCommands = commands;
+    bindButton(*m_enqueueProcessingButton, m_processingCommands.enqueue);
+    bindButton(*m_cancelSelectedProcessingButton, m_processingCommands.cancelSelected);
+    bindButton(*m_cancelAllProcessingButton, m_processingCommands.cancelAll);
+    setProcessingHasPendingOrRunningTasks(m_processingHasPendingOrRunningTasks);
+}
+
+void MainWindow::setSongModel(QAbstractItemModel *model)
+{
+    m_songListView->setModel(model);
+    connect(m_songListView->selectionModel(), &QItemSelectionModel::currentChanged, this, [this](const QModelIndex &current) {
+        emit songSelected(current.isValid() ? current.row() : -1);
     });
 }
 
-void MainWindow::updateCount()
+void MainWindow::setPlaylistModel(QAbstractItemModel *model)
 {
-    m_countLabel->setText(tr("%n song(s)", nullptr, m_viewModel.count()));
+    m_playlistListView->setModel(model);
+    connect(m_playlistListView->selectionModel(), &QItemSelectionModel::currentChanged, this, [this](const QModelIndex &current) {
+        if (!current.isValid()) {
+            return;
+        }
+        const QString playlistId = current.data(m_playlistIdRole).toString();
+        if (!playlistId.isEmpty()) {
+            emit playlistSelected(playlistId);
+        }
+    });
+    syncPlaylistSelection();
 }
 
-void MainWindow::updateStatusMessage()
+void MainWindow::setProcessingTaskModel(QAbstractItemModel *model)
 {
-    setLabelVisibleText(*m_statusLabel, m_viewModel.statusMessage());
+    m_processingTaskListView->setModel(model);
+    connect(m_processingTaskListView->selectionModel(), &QItemSelectionModel::currentChanged, this, [this](const QModelIndex &current) {
+        emit processingTaskSelected(current.isValid() ? current.row() : -1);
+    });
 }
 
-void MainWindow::updateLastError()
+void MainWindow::setPlaylistIdRole(int role) noexcept
 {
-    setLabelVisibleText(*m_errorLabel, m_viewModel.lastError());
+    m_playlistIdRole = role;
 }
 
-void MainWindow::updateWarnings()
+void MainWindow::setStoragePath(const QString &path)
 {
-    const QStringList warnings = m_viewModel.warnings();
+    const QSignalBlocker blocker(m_storagePathInput);
+    Q_UNUSED(blocker)
+    m_syncingStoragePath = true;
+    m_storagePathInput->setText(path);
+    m_syncingStoragePath = false;
+}
+
+void MainWindow::setScanDirectoryPath(const QString &path)
+{
+    const QSignalBlocker blocker(m_scanDirectoryPathInput);
+    Q_UNUSED(blocker)
+    m_syncingScanPath = true;
+    m_scanDirectoryPathInput->setText(path);
+    m_syncingScanPath = false;
+}
+
+void MainWindow::setLibraryCount(int count)
+{
+    m_countLabel->setText(tr("%n song(s)", nullptr, count));
+}
+
+void MainWindow::setLibraryStatusMessage(const QString &message)
+{
+    setLabelVisibleText(*m_statusLabel, message);
+}
+
+void MainWindow::setLibraryLastError(const QString &error)
+{
+    setLabelVisibleText(*m_errorLabel, error);
+}
+
+void MainWindow::setLibraryWarnings(const QStringList &warnings)
+{
     QStringList lines;
     lines.reserve(warnings.size());
     for (const QString &warning : warnings) {
         lines.append(tr("Warning: %1").arg(warning));
     }
-
     setLabelVisibleText(*m_warningsLabel, lines.join(QLatin1Char('\n')));
 }
 
-void MainWindow::updatePlaylistSelection()
+void MainWindow::setPlaylistName(const QString &name)
 {
-    if (m_playlistListView->model() == nullptr) {
-        return;
-    }
-
-    const QString visiblePlaylistId = m_playlistViewModel.visiblePlaylistId();
-    for (int row = 0; row < m_playlistListView->model()->rowCount(); ++row) {
-        const QModelIndex index = m_playlistListView->model()->index(row, 0);
-        if (index.data(m_playlistViewModel.playlistIdRole()).toString() == visiblePlaylistId) {
-            if (m_playlistListView->currentIndex() != index) {
-                m_playlistListView->setCurrentIndex(index);
-            }
-            return;
-        }
-    }
+    const QSignalBlocker blocker(m_playlistNameInput);
+    Q_UNUSED(blocker)
+    m_syncingPlaylistName = true;
+    m_playlistNameInput->setText(name);
+    m_syncingPlaylistName = false;
 }
 
-void MainWindow::updatePlaylistStatusMessage()
+void MainWindow::setVisiblePlaylistId(const QString &playlistId)
 {
-    const QString status = m_playlistViewModel.statusMessage();
-    setLabelVisibleText(*m_playlistStatusLabel, status.isEmpty() ? QString() : tr("Playlist: %1").arg(status));
+    m_visiblePlaylistId = playlistId;
+    syncPlaylistSelection();
 }
 
-void MainWindow::updatePlaylistLastError()
+void MainWindow::setPlaylistStatusMessage(const QString &message)
 {
-    const QString error = m_playlistViewModel.lastError();
+    setLabelVisibleText(*m_playlistStatusLabel, message.isEmpty() ? QString() : tr("Playlist: %1").arg(message));
+}
+
+void MainWindow::setPlaylistLastError(const QString &error)
+{
     setLabelVisibleText(*m_playlistErrorLabel, error.isEmpty() ? QString() : tr("Playlist error: %1").arg(error));
 }
 
-void MainWindow::updatePlaybackState()
+void MainWindow::setPlaybackStateLabel(const QString &stateLabel)
 {
-    m_playbackStateLabel->setText(tr("Playback state: %1").arg(playbackStateText()));
-
-    const bool hasCurrentTrack = m_playbackViewModel.currentPlaybackIndex() >= 0;
-    switch (m_playbackViewModel.playbackState()) {
-    case ViewModel::PlaybackState::Playing:
-        m_pauseButton->setText(tr("Pause"));
-        m_pauseButton->setEnabled(hasCurrentTrack);
-        break;
-    case ViewModel::PlaybackState::Paused:
-        m_pauseButton->setText(tr("Resume"));
-        m_pauseButton->setEnabled(hasCurrentTrack);
-        break;
-    case ViewModel::PlaybackState::Stopped:
-    case ViewModel::PlaybackState::Loading:
-    case ViewModel::PlaybackState::Buffering:
-    case ViewModel::PlaybackState::Error:
-        m_pauseButton->setText(tr("Pause/Resume"));
-        m_pauseButton->setEnabled(false);
-        break;
-    }
+    m_playbackStateLabel->setText(tr("Playback state: %1").arg(stateLabel));
 }
 
-void MainWindow::updateCurrentPlaybackTrack()
+void MainWindow::setPlaybackHasCurrentTrack(bool hasCurrentTrack)
 {
-    const QString title = m_playbackViewModel.currentPlaybackTitle();
+    m_playbackHasCurrentTrack = hasCurrentTrack;
+    m_pauseButton->setEnabled(hasCurrentTrack && m_playbackCommands.pauseResume != nullptr);
+}
+
+void MainWindow::setCurrentPlaybackTitle(const QString &title)
+{
     setLabelVisibleText(*m_currentPlaybackLabel, title.isEmpty() ? QString() : tr("Now playing: %1").arg(title));
 }
 
-void MainWindow::updatePlaybackPosition()
+void MainWindow::setPlaybackPosition(qint64 positionMs)
 {
-    const int value = sliderValueFromMs(m_playbackViewModel.positionMs());
+    m_playbackPositionMs = positionMs;
+    const int value = sliderValueFromMs(positionMs);
     if (!m_userSeeking && m_progressSlider->value() != value) {
         m_progressSlider->setValue(value);
     }
-
-    const int displayValue = m_userSeeking ? m_progressSlider->value() : value;
-    m_playbackPositionLabel->setText(tr("%1 / %2").arg(formatTime(displayValue), formatTime(m_playbackViewModel.durationMs())));
+    updatePlaybackPositionLabel();
 }
 
-void MainWindow::updatePlaybackDuration()
+void MainWindow::setPlaybackDuration(qint64 durationMs)
 {
-    const int duration = sliderValueFromMs(m_playbackViewModel.durationMs());
-    m_progressSlider->setRange(0, duration);
-    updatePlaybackPosition();
+    m_playbackDurationMs = durationMs;
+    m_progressSlider->setRange(0, sliderValueFromMs(durationMs));
+    updatePlaybackPositionLabel();
 }
 
-void MainWindow::updatePlaybackSeekable()
+void MainWindow::setPlaybackSeekable(bool seekable)
 {
-    m_progressSlider->setEnabled(m_playbackViewModel.seekable() && m_playbackViewModel.durationMs() > 0);
+    m_playbackSeekable = seekable;
+    m_progressSlider->setEnabled(m_playbackSeekable && m_playbackDurationMs > 0);
 }
 
-void MainWindow::updatePlaybackVolume()
+void MainWindow::setPlaybackVolumePercent(int volumePercent)
 {
     const QSignalBlocker blocker(m_volumeSlider);
     Q_UNUSED(blocker)
     m_syncingVolume = true;
-    m_volumeSlider->setValue(m_playbackViewModel.volumePercent());
+    m_volumeSlider->setValue(volumePercent);
     m_syncingVolume = false;
 }
 
-void MainWindow::updatePlaybackMuted()
+void MainWindow::setPlaybackMuted(bool muted)
 {
-    m_muteButton->setText(m_playbackViewModel.muted() ? tr("Unmute") : tr("Mute"));
+    m_muteButton->setText(muted ? tr("Unmute") : tr("Mute"));
 }
 
-void MainWindow::updatePlaybackError()
+void MainWindow::setPlaybackLastError(const QString &error)
 {
-    setLabelVisibleText(*m_playbackErrorLabel, m_playbackViewModel.lastPlaybackError());
+    setLabelVisibleText(*m_playbackErrorLabel, error);
 }
 
-void MainWindow::updatePlaybackStatusMessage()
+void MainWindow::setPlaybackStatusMessage(const QString &message)
 {
-    setLabelVisibleText(*m_playbackStatusLabel, m_playbackViewModel.statusMessage());
+    setLabelVisibleText(*m_playbackStatusLabel, message);
 }
 
-
-void MainWindow::updateAudioEffectsCapabilities()
-{
-    const bool rateAvailable = m_audioEffectsViewModel.supportsPitchPreservingRate();
-    const bool eqAvailable = m_audioEffectsViewModel.supportsEqualizer();
-    m_playbackRateComboBox->setEnabled(rateAvailable);
-    m_resetPlaybackRateButton->setEnabled(rateAvailable && m_audioEffectsViewModel.resetPlaybackRateCommand() != nullptr);
-    m_equalizerEnabledCheckBox->setEnabled(eqAvailable);
-    m_equalizerPresetComboBox->setEnabled(eqAvailable);
-    m_resetEqualizerButton->setEnabled(eqAvailable && m_audioEffectsViewModel.resetEqualizerCommand() != nullptr);
-    for (QSlider *slider : m_equalizerSliders) {
-        if (slider != nullptr) {
-            slider->setEnabled(eqAvailable);
-        }
-    }
-}
-
-void MainWindow::updateAudioEffectsPlaybackRate()
+void MainWindow::setPlaybackRateLabels(const QStringList &labels)
 {
     const QSignalBlocker blocker(m_playbackRateComboBox);
     Q_UNUSED(blocker)
     m_syncingAudioEffects = true;
-    const double rate = m_audioEffectsViewModel.playbackRate();
+    m_playbackRateComboBox->clear();
+    for (const QString &label : labels) {
+        m_playbackRateComboBox->addItem(label, playbackRateFromLabel(label));
+    }
+    m_syncingAudioEffects = false;
+}
+
+void MainWindow::setEqualizerPresetLabels(const QStringList &labels)
+{
+    const QSignalBlocker blocker(m_equalizerPresetComboBox);
+    Q_UNUSED(blocker)
+    m_syncingAudioEffects = true;
+    m_equalizerPresetComboBox->clear();
+    m_equalizerPresetComboBox->addItems(labels);
+    m_syncingAudioEffects = false;
+}
+
+void MainWindow::setAudioEffectsCapabilities(bool supportsPitchPreservingRate, bool supportsEqualizer)
+{
+    m_playbackRateComboBox->setEnabled(supportsPitchPreservingRate);
+    m_resetPlaybackRateButton->setEnabled(supportsPitchPreservingRate && m_audioEffectsCommands.resetPlaybackRate != nullptr);
+    m_equalizerEnabledCheckBox->setEnabled(supportsEqualizer);
+    m_equalizerPresetComboBox->setEnabled(supportsEqualizer);
+    m_resetEqualizerButton->setEnabled(supportsEqualizer && m_audioEffectsCommands.resetEqualizer != nullptr);
+    for (QSlider *slider : m_equalizerSliders) {
+        if (slider != nullptr) {
+            slider->setEnabled(supportsEqualizer);
+        }
+    }
+}
+
+void MainWindow::setAudioEffectsPlaybackRate(double rate)
+{
+    const QSignalBlocker blocker(m_playbackRateComboBox);
+    Q_UNUSED(blocker)
+    m_syncingAudioEffects = true;
     for (int index = 0; index < m_playbackRateComboBox->count(); ++index) {
         if (std::abs(m_playbackRateComboBox->itemData(index).toDouble() - rate) < 0.001) {
             m_playbackRateComboBox->setCurrentIndex(index);
@@ -896,22 +688,17 @@ void MainWindow::updateAudioEffectsPlaybackRate()
     m_syncingAudioEffects = false;
 }
 
-void MainWindow::updateAudioEffectsEqualizerEnabled()
+void MainWindow::setAudioEffectsEqualizerEnabled(bool enabled)
 {
     const QSignalBlocker blocker(m_equalizerEnabledCheckBox);
     Q_UNUSED(blocker)
     m_syncingAudioEffects = true;
-    m_equalizerEnabledCheckBox->setChecked(m_audioEffectsViewModel.equalizerEnabled());
+    m_equalizerEnabledCheckBox->setChecked(enabled);
     m_syncingAudioEffects = false;
 }
 
-void MainWindow::updateAudioEffectsBandGains()
+void MainWindow::setAudioEffectsBandGains(const std::array<double, 5> &gains)
 {
-    const std::array<double, 5> gains = {m_audioEffectsViewModel.band0GainDb(),
-                                         m_audioEffectsViewModel.band1GainDb(),
-                                         m_audioEffectsViewModel.band2GainDb(),
-                                         m_audioEffectsViewModel.band3GainDb(),
-                                         m_audioEffectsViewModel.band4GainDb()};
     m_syncingAudioEffects = true;
     for (std::size_t index = 0; index < gains.size(); ++index) {
         QSlider *slider = m_equalizerSliders[index];
@@ -925,70 +712,85 @@ void MainWindow::updateAudioEffectsBandGains()
     m_syncingAudioEffects = false;
 }
 
-void MainWindow::updateAudioEffectsPreset()
+void MainWindow::setAudioEffectsPreset(const QString &preset)
 {
     const QSignalBlocker blocker(m_equalizerPresetComboBox);
     Q_UNUSED(blocker)
     m_syncingAudioEffects = true;
-    const int index = m_equalizerPresetComboBox->findText(m_audioEffectsViewModel.equalizerPreset());
+    const int index = m_equalizerPresetComboBox->findText(preset);
     if (index >= 0) {
         m_equalizerPresetComboBox->setCurrentIndex(index);
     }
     m_syncingAudioEffects = false;
 }
 
-void MainWindow::updateAudioEffectsStatusMessage()
+void MainWindow::setAudioEffectsStatusMessage(const QString &message)
 {
-    const QString status = m_audioEffectsViewModel.statusMessage();
-    setLabelVisibleText(*m_audioEffectsStatusLabel, status.isEmpty() ? QString() : tr("Effects: %1").arg(status));
+    setLabelVisibleText(*m_audioEffectsStatusLabel, message.isEmpty() ? QString() : tr("Effects: %1").arg(message));
 }
 
-void MainWindow::updateAudioEffectsLastError()
+void MainWindow::setAudioEffectsLastError(const QString &error)
 {
-    const QString error = m_audioEffectsViewModel.lastError();
     setLabelVisibleText(*m_audioEffectsErrorLabel, error.isEmpty() ? QString() : tr("Effects error: %1").arg(error));
 }
 
-void MainWindow::updateProcessingInputSummary()
+void MainWindow::setProcessingInputFilePaths(const QStringList &paths)
 {
-    const QStringList files = m_processingViewModel.inputFilePaths();
     setLabelVisibleText(*m_processingInputSummaryLabel,
-                        files.isEmpty() ? QString() : tr("Transcode inputs: %n file(s)", nullptr, files.size()));
+                        paths.isEmpty() ? QString() : tr("Transcode inputs: %n file(s)", nullptr, paths.size()));
 }
 
-void MainWindow::updateProcessingOutputDirectory()
+void MainWindow::setProcessingOutputDirectory(const QString &directory)
 {
-    const QString directory = m_processingViewModel.outputDirectory();
     setLabelVisibleText(*m_processingOutputDirectoryLabel,
                         directory.isEmpty() ? QString() : tr("Transcode output: %1").arg(directory));
 }
 
-void MainWindow::updateProcessingOutputFormat()
+void MainWindow::setProcessingOutputFormat(const QString &format)
 {
-    const QString format = m_processingViewModel.outputFormat();
-    if (m_processingFormatComboBox->currentText() != format) {
-        const int index = m_processingFormatComboBox->findText(format);
-        if (index >= 0) {
-            m_processingFormatComboBox->setCurrentIndex(index);
-        }
+    if (m_processingFormatComboBox->currentText() == format) {
+        return;
     }
+
+    const QSignalBlocker blocker(m_processingFormatComboBox);
+    Q_UNUSED(blocker)
+    m_syncingProcessingFormat = true;
+    const int index = m_processingFormatComboBox->findText(format);
+    if (index >= 0) {
+        m_processingFormatComboBox->setCurrentIndex(index);
+    }
+    m_syncingProcessingFormat = false;
 }
 
-void MainWindow::updateProcessingActiveState()
+void MainWindow::setProcessingHasPendingOrRunningTasks(bool active)
 {
-    m_cancelAllProcessingButton->setEnabled(m_processingViewModel.hasPendingOrRunningTasks());
+    m_processingHasPendingOrRunningTasks = active;
+    m_cancelAllProcessingButton->setEnabled(active && m_processingCommands.cancelAll != nullptr);
 }
 
-void MainWindow::updateProcessingStatusMessage()
+void MainWindow::setProcessingStatusMessage(const QString &message)
 {
-    const QString status = m_processingViewModel.statusMessage();
-    setLabelVisibleText(*m_processingStatusLabel, status.isEmpty() ? QString() : tr("Processing: %1").arg(status));
+    setLabelVisibleText(*m_processingStatusLabel, message.isEmpty() ? QString() : tr("Processing: %1").arg(message));
 }
 
-void MainWindow::updateProcessingLastError()
+void MainWindow::setProcessingLastError(const QString &error)
 {
-    const QString error = m_processingViewModel.lastError();
     setLabelVisibleText(*m_processingErrorLabel, error.isEmpty() ? QString() : tr("Processing error: %1").arg(error));
+}
+
+void MainWindow::bindButton(QPushButton &button, Common::ViewCommand *command)
+{
+    button.disconnect();
+    if (command == nullptr) {
+        button.setEnabled(false);
+        return;
+    }
+
+    button.setEnabled(command->isEnabled());
+    connect(&button, &QPushButton::clicked, command, &Common::ViewCommand::execute);
+    connect(command, &Common::ViewCommand::enabledChanged, &button, [&button, command]() {
+        button.setEnabled(command->isEnabled());
+    });
 }
 
 void MainWindow::setLabelVisibleText(QLabel &label, const QString &text)
@@ -997,24 +799,29 @@ void MainWindow::setLabelVisibleText(QLabel &label, const QString &text)
     label.setVisible(!text.isEmpty());
 }
 
-QString MainWindow::playbackStateText() const
+void MainWindow::syncPlaylistSelection()
 {
-    switch (m_playbackViewModel.playbackState()) {
-    case ViewModel::PlaybackState::Stopped:
-        return tr("Stopped");
-    case ViewModel::PlaybackState::Loading:
-        return tr("Loading");
-    case ViewModel::PlaybackState::Playing:
-        return tr("Playing");
-    case ViewModel::PlaybackState::Paused:
-        return tr("Paused");
-    case ViewModel::PlaybackState::Buffering:
-        return tr("Buffering");
-    case ViewModel::PlaybackState::Error:
-        return tr("Error");
+    if (m_playlistListView->model() == nullptr || m_visiblePlaylistId.isEmpty()) {
+        return;
     }
 
-    return tr("Stopped");
+    for (int row = 0; row < m_playlistListView->model()->rowCount(); ++row) {
+        const QModelIndex index = m_playlistListView->model()->index(row, 0);
+        if (index.data(m_playlistIdRole).toString() == m_visiblePlaylistId) {
+            if (m_playlistListView->currentIndex() != index) {
+                const QSignalBlocker blocker(m_playlistListView->selectionModel());
+                Q_UNUSED(blocker)
+                m_playlistListView->setCurrentIndex(index);
+            }
+            return;
+        }
+    }
+}
+
+void MainWindow::updatePlaybackPositionLabel()
+{
+    const int displayValue = m_userSeeking ? m_progressSlider->value() : sliderValueFromMs(m_playbackPositionMs);
+    m_playbackPositionLabel->setText(tr("%1 / %2").arg(formatTime(displayValue), formatTime(m_playbackDurationMs)));
 }
 
 int MainWindow::sliderValueFromMs(qint64 valueMs)

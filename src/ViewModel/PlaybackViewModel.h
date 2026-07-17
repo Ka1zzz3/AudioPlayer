@@ -10,7 +10,6 @@ class AudioFile;
 }
 
 namespace AudioPlayer::Model::Service {
-class IPlaybackService;
 class PlaybackUseCase;
 enum class PlaybackBackendError;
 enum class PlaybackBackendState;
@@ -41,9 +40,7 @@ class PlaybackViewModel : public PlaybackViewModelProtocol
     Q_PROPERTY(AudioPlayer::Common::ViewCommand *toggleMuteCommand READ toggleMuteCommand CONSTANT)
 
 public:
-    PlaybackViewModel(ModelService::PlaybackUseCase &playbackUseCase,
-                      ModelService::IPlaybackService &playbackService,
-                      QObject *parent = nullptr);
+    explicit PlaybackViewModel(ModelService::PlaybackUseCase &playbackUseCase, QObject *parent = nullptr);
 
     [[nodiscard]] PlaybackState playbackState() const noexcept override;
     [[nodiscard]] int currentPlaybackIndex() const noexcept override;
@@ -91,7 +88,6 @@ private:
     void clearPlaybackError();
 
     ModelService::PlaybackUseCase &m_playbackUseCase;
-    ModelService::IPlaybackService &m_playbackService;
     Common::ViewCommand m_playCommand;
     Common::ViewCommand m_pauseCommand;
     Common::ViewCommand m_stopCommand;

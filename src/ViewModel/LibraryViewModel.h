@@ -35,7 +35,6 @@ class LibraryViewModel : public LibraryViewModelProtocol
     Q_PROPERTY(AudioPlayer::Common::ViewCommand *refreshCommand READ refreshCommand CONSTANT)
 
 public:
-    explicit LibraryViewModel(QObject *parent = nullptr);
     explicit LibraryViewModel(std::shared_ptr<const ModelService::LibraryUseCase> libraryUseCase,
                               QObject *parent = nullptr);
 

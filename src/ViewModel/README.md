@@ -1,9 +1,9 @@
 # ViewModel
 
-Qt Widgets-facing presentation state for the local library is implemented here:
+Presentation state and commands live here.
 
-- `LibraryViewModelProtocol` is the stable View boundary. Views bind to its properties, Qt signals, `QAbstractItemModel`, and `ViewCommand` objects instead of concrete ViewModel methods.
-- `LibraryViewModel` owns the song list model, delegates load/save/scan/refresh workflows to `Model::Service::LibraryUseCase`, exposes `count`, status, errors, and warnings, and keeps command handlers private.
-- `SongListModel` adapts `PlayList` to a Qt item model with roles for `filePath`, `title`, `artist`, `album`, `durationSeconds`, and `displayTitle`.
-
-Refresh is deterministic: files that are missing or unsupported are skipped and reported through `warnings`; a refresh with no skipped files clears any stale error.
+- ViewModels expose Qt properties/signals, `QAbstractItemModel` display models, and owned `Common::ViewCommand` objects.
+- Command handlers call Model use cases/services; Views never call ViewModel business methods directly.
+- `ShellViewModel` owns cross-ViewModel presentation workflows such as library/playlist projection and playlist playback handoff.
+- Default production construction is dependency-injected by App/Part; tests use local helpers/fakes rather than ViewModels creating their own use cases.
+- View-facing protocol headers are kept free of Model/backend types. Internal coordination APIs may use Model types, but they are consumed by ViewModel/App binding code, not by `View`.

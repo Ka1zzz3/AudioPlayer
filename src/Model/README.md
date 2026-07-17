@@ -1,10 +1,9 @@
 # Model
 
-Domain types and persistence helpers for the local library are implemented here:
+Domain data, repositories, backend abstractions, and use-case services live here.
 
-- `AudioFile` stores a file path plus title, artist, album, and non-negative duration metadata.
-- `PlayList` owns the ordered list of `AudioFile` entries, tracks the current index, and exposes list operations and total duration.
-- `FileScanner` recognizes local `.mp3`, `.wav`, and `.flac` files and creates basic `AudioFile` metadata from the file name/path.
-- `JsonSongRepository` saves and loads a playlist JSON document for local persistence.
-
-Playback, tag extraction, history, and multi-playlist behavior are outside the current model scope.
+- Domain types such as `AudioFile`, `PlayList`, `LibraryDocument`, `LibraryPlaylist`, and `ProcessingTask` contain data and domain behavior only.
+- Repository/backend classes handle persistence, scanning, playback backend access, audio effects backend access, and transcoding details.
+- Use cases/services expose Model-level operations and events to ViewModels.
+- `ProcessingPlaylistIntegrationService` owns the workflow that integrates successful processing outputs into the transcoded playlist, keeping that business workflow out of `AppCompositionRoot` and `View`.
+- Model code must not depend on `View` or `ViewModel`.

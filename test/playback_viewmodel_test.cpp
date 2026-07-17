@@ -184,7 +184,7 @@ void PlaybackViewModelTest::commandsExposePlaybackIntentAndState()
     const QString secondPath = createAudioFile(temporaryDirectory, QStringLiteral("second.mp3"));
     PlaybackViewModelFakeService service;
     PlaybackUseCase useCase(service);
-    PlaybackViewModel viewModel(useCase, service);
+    PlaybackViewModel viewModel(useCase);
     QSignalSpy stateSpy(&viewModel, &PlaybackViewModel::playbackStateChanged);
     QSignalSpy currentSpy(&viewModel, &PlaybackViewModel::currentPlaybackIndexChanged);
 
@@ -215,7 +215,7 @@ void PlaybackViewModelTest::progressSeekVolumeAndMuteReflectBackendState()
 {
     PlaybackViewModelFakeService service;
     PlaybackUseCase useCase(service);
-    PlaybackViewModel viewModel(useCase, service);
+    PlaybackViewModel viewModel(useCase);
     QSignalSpy positionSpy(&viewModel, &PlaybackViewModel::positionMsChanged);
     QSignalSpy durationSpy(&viewModel, &PlaybackViewModel::durationMsChanged);
     QSignalSpy volumeSpy(&viewModel, &PlaybackViewModel::volumePercentChanged);
@@ -247,7 +247,7 @@ void PlaybackViewModelTest::missingFileErrorRemainsVisibleAndRecoveryClearsIt()
     const QString playablePath = createAudioFile(temporaryDirectory, QStringLiteral("playable.mp3"));
     PlaybackViewModelFakeService service;
     PlaybackUseCase useCase(service);
-    PlaybackViewModel viewModel(useCase, service);
+    PlaybackViewModel viewModel(useCase);
     QSignalSpy errorSpy(&viewModel, &PlaybackViewModel::lastPlaybackErrorChanged);
 
     viewModel.replaceQueue(queue({track(missingPath, QStringLiteral("Missing")), track(playablePath, QStringLiteral("Playable"))}));
@@ -271,7 +271,7 @@ void PlaybackViewModelTest::backendErrorAutoNextUpdatesCurrentTrack()
     const QString secondPath = createAudioFile(temporaryDirectory, QStringLiteral("second.mp3"));
     PlaybackViewModelFakeService service;
     PlaybackUseCase useCase(service);
-    PlaybackViewModel viewModel(useCase, service);
+    PlaybackViewModel viewModel(useCase);
     viewModel.replaceQueue(queue({track(firstPath, QStringLiteral("First")), track(secondPath, QStringLiteral("Second"))}));
 
     QVERIFY(viewModel.playCommand()->execute());

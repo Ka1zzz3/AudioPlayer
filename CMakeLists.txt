@@ -121,6 +121,8 @@ if(AUDIOPLAYER_BUILD_APP)
     qt_add_executable(AudioPlayer
         src/App/AppCompositionRoot.cpp
         src/App/AppCompositionRoot.h
+        src/App/MainWindowPart.cpp
+        src/App/MainWindowPart.h
         src/App/widgets_main.cpp
         src/Common/ViewCommand.cpp
         src/Common/ViewCommand.h
@@ -165,6 +167,8 @@ if(AUDIOPLAYER_BUILD_APP)
         src/Model/Service/PlaylistCollectionUseCase.h
         src/Model/Service/PlaybackUseCase.cpp
         src/Model/Service/PlaybackUseCase.h
+        src/Model/Service/ProcessingPlaylistIntegrationService.cpp
+        src/Model/Service/ProcessingPlaylistIntegrationService.h
         src/Model/Service/ProcessingUseCase.cpp
         src/Model/Service/ProcessingUseCase.h
         src/Model/Service/TranscodedPlaylistService.cpp
@@ -190,6 +194,8 @@ if(AUDIOPLAYER_BUILD_APP)
         src/ViewModel/PlaybackViewModel.cpp
         src/ViewModel/PlaybackViewModel.h
         src/ViewModel/PlaybackViewModelProtocol.h
+        src/ViewModel/ShellViewModel.cpp
+        src/ViewModel/ShellViewModel.h
         src/ViewModel/SongListModel.cpp
         src/ViewModel/SongListModel.h
     )

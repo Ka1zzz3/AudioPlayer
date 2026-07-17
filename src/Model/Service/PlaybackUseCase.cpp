@@ -26,6 +26,12 @@ PlaybackUseCase::PlaybackUseCase(IPlaybackService &playbackService, QObject *par
 {
     connect(&m_playbackService, &IPlaybackService::playbackEnded, this, &PlaybackUseCase::handlePlaybackEnded);
     connect(&m_playbackService, &IPlaybackService::playbackError, this, &PlaybackUseCase::handlePlaybackError);
+    connect(&m_playbackService, &IPlaybackService::stateChanged, this, &PlaybackUseCase::playbackStateChanged);
+    connect(&m_playbackService, &IPlaybackService::positionChanged, this, &PlaybackUseCase::positionChanged);
+    connect(&m_playbackService, &IPlaybackService::durationChanged, this, &PlaybackUseCase::durationChanged);
+    connect(&m_playbackService, &IPlaybackService::seekableChanged, this, &PlaybackUseCase::seekableChanged);
+    connect(&m_playbackService, &IPlaybackService::volumeChanged, this, &PlaybackUseCase::volumeChanged);
+    connect(&m_playbackService, &IPlaybackService::mutedChanged, this, &PlaybackUseCase::mutedChanged);
 }
 
 int PlaybackUseCase::currentIndex() const noexcept
@@ -50,6 +56,36 @@ std::optional<AudioFile> PlaybackUseCase::currentTrack() const
 bool PlaybackUseCase::hasQueue() const noexcept
 {
     return !m_queue.isEmpty();
+}
+
+PlaybackBackendState PlaybackUseCase::playbackState() const noexcept
+{
+    return m_playbackService.state();
+}
+
+qint64 PlaybackUseCase::positionMs() const noexcept
+{
+    return m_playbackService.positionMs();
+}
+
+qint64 PlaybackUseCase::durationMs() const noexcept
+{
+    return m_playbackService.durationMs();
+}
+
+bool PlaybackUseCase::seekable() const noexcept
+{
+    return m_playbackService.seekable();
+}
+
+float PlaybackUseCase::volume() const noexcept
+{
+    return m_playbackService.volume();
+}
+
+bool PlaybackUseCase::muted() const noexcept
+{
+    return m_playbackService.muted();
 }
 
 void PlaybackUseCase::setQueue(QVector<AudioFile> queue)

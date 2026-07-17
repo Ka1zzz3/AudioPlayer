@@ -3,6 +3,7 @@
 #include "Model/PlayList.h"
 #include "Model/Service/IPlaybackService.h"
 #include "Model/Service/PlaybackUseCase.h"
+#include "Model/Service/LibraryUseCase.h"
 #include "Model/Service/PlaylistCollectionUseCase.h"
 #include "Model/Service/TranscodedPlaylistService.h"
 #include "ViewModel/LibraryViewModel.h"
@@ -12,6 +13,7 @@
 #include <QtTest/QtTest>
 
 #include <algorithm>
+#include <memory>
 
 #include <QDir>
 #include <QFile>
@@ -136,11 +138,11 @@ QString savePlayList(const QTemporaryDir &temporaryDirectory, const PlayList &pl
 
 struct PlaybackCompositionFixture
 {
-    LibraryViewModel libraryViewModel;
+    LibraryViewModel libraryViewModel{std::make_shared<AudioPlayer::Model::Service::LibraryUseCase>()};
     CompositionFakePlaybackService playbackService;
     PlaybackUseCase playbackUseCase{playbackService};
-    PlaybackViewModel playbackViewModel{playbackUseCase, playbackService};
-    PlaylistCollectionViewModel playlistCollectionViewModel;
+    PlaybackViewModel playbackViewModel{playbackUseCase};
+    PlaylistCollectionViewModel playlistCollectionViewModel{std::make_shared<AudioPlayer::Model::Service::PlaylistCollectionUseCase>()};
 
     PlaybackCompositionFixture()
     {

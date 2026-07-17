@@ -1,7 +1,6 @@
 #include "ViewModel/PlaybackViewModel.h"
 
 #include "Model/AudioFile.h"
-#include "Model/Service/IPlaybackService.h"
 #include "Model/Service/PlaybackUseCase.h"
 
 #include <algorithm>
@@ -45,12 +44,9 @@ float toBackendVolume(int volumePercent)
 
 } // namespace
 
-PlaybackViewModel::PlaybackViewModel(ModelService::PlaybackUseCase &playbackUseCase,
-                                     ModelService::IPlaybackService &playbackService,
-                                     QObject *parent)
+PlaybackViewModel::PlaybackViewModel(ModelService::PlaybackUseCase &playbackUseCase, QObject *parent)
     : PlaybackViewModelProtocol(parent)
     , m_playbackUseCase(playbackUseCase)
-    , m_playbackService(playbackService)
     , m_playCommand(QStringLiteral("play"), [this]() { return executePlay(); }, this)
     , m_pauseCommand(QStringLiteral("pause"), [this]() { return executePause(); }, this)
     , m_stopCommand(QStringLiteral("stop"), [this]() { return executeStop(); }, this)
@@ -58,19 +54,19 @@ PlaybackViewModel::PlaybackViewModel(ModelService::PlaybackUseCase &playbackUseC
     , m_nextCommand(QStringLiteral("next"), [this]() { return executeNext(); }, this)
     , m_toggleMuteCommand(QStringLiteral("toggleMute"), [this]() { return executeToggleMute(); }, this)
 {
-    m_playbackState = toPlaybackState(m_playbackService.state());
-    m_positionMs = m_playbackService.positionMs();
-    m_durationMs = m_playbackService.durationMs();
-    m_seekable = m_playbackService.seekable();
-    m_volumePercent = toVolumePercent(m_playbackService.volume());
-    m_muted = m_playbackService.muted();
+    m_playbackState = toPlaybackState(m_playbackUseCase.playbackState());
+    m_positionMs = m_playbackUseCase.positionMs();
+    m_durationMs = m_playbackUseCase.durationMs();
+    m_seekable = m_playbackUseCase.seekable();
+    m_volumePercent = toVolumePercent(m_playbackUseCase.volume());
+    m_muted = m_playbackUseCase.muted();
 
-    connect(&m_playbackService, &ModelService::IPlaybackService::stateChanged, this, &PlaybackViewModel::updatePlaybackState);
-    connect(&m_playbackService, &ModelService::IPlaybackService::positionChanged, this, &PlaybackViewModel::updatePosition);
-    connect(&m_playbackService, &ModelService::IPlaybackService::durationChanged, this, &PlaybackViewModel::updateDuration);
-    connect(&m_playbackService, &ModelService::IPlaybackService::seekableChanged, this, &PlaybackViewModel::updateSeekable);
-    connect(&m_playbackService, &ModelService::IPlaybackService::volumeChanged, this, &PlaybackViewModel::updateVolume);
-    connect(&m_playbackService, &ModelService::IPlaybackService::mutedChanged, this, &PlaybackViewModel::updateMuted);
+    connect(&m_playbackUseCase, &ModelService::PlaybackUseCase::playbackStateChanged, this, &PlaybackViewModel::updatePlaybackState);
+    connect(&m_playbackUseCase, &ModelService::PlaybackUseCase::positionChanged, this, &PlaybackViewModel::updatePosition);
+    connect(&m_playbackUseCase, &ModelService::PlaybackUseCase::durationChanged, this, &PlaybackViewModel::updateDuration);
+    connect(&m_playbackUseCase, &ModelService::PlaybackUseCase::seekableChanged, this, &PlaybackViewModel::updateSeekable);
+    connect(&m_playbackUseCase, &ModelService::PlaybackUseCase::volumeChanged, this, &PlaybackViewModel::updateVolume);
+    connect(&m_playbackUseCase, &ModelService::PlaybackUseCase::mutedChanged, this, &PlaybackViewModel::updateMuted);
     connect(&m_playbackUseCase, &ModelService::PlaybackUseCase::currentTrackChanged, this, &PlaybackViewModel::updateCurrentTrack);
     connect(&m_playbackUseCase, &ModelService::PlaybackUseCase::playbackErrorOccurred, this, &PlaybackViewModel::updatePlaybackError);
     connect(&m_playbackUseCase, &ModelService::PlaybackUseCase::playbackStopped, this, [this]() {

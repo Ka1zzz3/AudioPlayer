@@ -11,11 +11,6 @@
 
 namespace AudioPlayer::ViewModel {
 
-PlaylistCollectionViewModel::PlaylistCollectionViewModel(QObject *parent)
-    : PlaylistCollectionViewModel(std::make_shared<ModelService::PlaylistCollectionUseCase>(), parent)
-{
-}
-
 PlaylistCollectionViewModel::PlaylistCollectionViewModel(
     std::shared_ptr<const ModelService::PlaylistCollectionUseCase> useCase,
     QObject *parent)
@@ -36,9 +31,7 @@ PlaylistCollectionViewModel::PlaylistCollectionViewModel(
                                    this)
     , m_storagePath(Model::JsonLibraryDocumentRepository::defaultStoragePath())
 {
-    if (!m_useCase) {
-        m_useCase = std::make_shared<ModelService::PlaylistCollectionUseCase>();
-    }
+    Q_ASSERT(m_useCase != nullptr);
     ModelService::PlaylistCollectionResult result = m_useCase->createEmptyDocument(QStringLiteral("default"),
                                                                                    QDateTime::currentDateTimeUtc());
     setDocument(std::move(result.document));

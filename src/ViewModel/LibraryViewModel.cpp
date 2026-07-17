@@ -9,11 +9,6 @@
 
 namespace AudioPlayer::ViewModel {
 
-LibraryViewModel::LibraryViewModel(QObject *parent)
-    : LibraryViewModel(std::make_shared<ModelService::LibraryUseCase>(), parent)
-{
-}
-
 LibraryViewModel::LibraryViewModel(std::shared_ptr<const ModelService::LibraryUseCase> libraryUseCase,
                                    QObject *parent)
     : LibraryViewModelProtocol(parent)
@@ -24,9 +19,7 @@ LibraryViewModel::LibraryViewModel(std::shared_ptr<const ModelService::LibraryUs
     , m_saveCommand(QStringLiteral("save"), [this]() { return executeSave(); }, this)
     , m_refreshCommand(QStringLiteral("refresh"), [this]() { return executeRefresh(); }, this)
 {
-    if (!m_libraryUseCase) {
-        m_libraryUseCase = std::make_shared<ModelService::LibraryUseCase>();
-    }
+    Q_ASSERT(m_libraryUseCase != nullptr);
 }
 
 QAbstractItemModel *LibraryViewModel::songs() noexcept

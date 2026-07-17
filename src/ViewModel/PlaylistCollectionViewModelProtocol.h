@@ -1,12 +1,10 @@
 #pragma once
 
 #include "Common/ViewCommand.h"
-#include "Model/AudioFile.h"
 
 #include <QAbstractItemModel>
 #include <QObject>
 #include <QString>
-#include <QVector>
 
 namespace AudioPlayer::ViewModel {
 
@@ -54,10 +52,6 @@ signals:
     void selectedSongIndexChanged();
     void lastErrorChanged();
     void statusMessageChanged();
-    void currentVisibleSongsChanged(const QVector<AudioPlayer::Model::AudioFile> &songs);
-    void playRequested(const QString &playlistId,
-                       const QVector<AudioPlayer::Model::AudioFile> &songsSnapshot,
-                       int startIndex);
 };
 
 } // namespace AudioPlayer::ViewModel

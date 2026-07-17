@@ -1,15 +1,27 @@
 #include "Model/AudioFile.h"
 #include "ViewModel/PlaylistCollectionViewModel.h"
 #include "ViewModel/PlaylistListModel.h"
+#include "Model/Service/PlaylistCollectionUseCase.h"
 
 #include <QtTest/QtTest>
 
 #include <QSignalSpy>
 #include <QTemporaryDir>
 
+#include <memory>
+
 using AudioPlayer::Model::AudioFile;
 using AudioPlayer::ViewModel::PlaylistCollectionViewModel;
 using AudioPlayer::ViewModel::PlaylistListModel;
+
+class TestPlaylistCollectionViewModel : public PlaylistCollectionViewModel
+{
+public:
+    TestPlaylistCollectionViewModel()
+        : PlaylistCollectionViewModel(std::make_shared<AudioPlayer::Model::Service::PlaylistCollectionUseCase>())
+    {
+    }
+};
 
 class PlaylistCollectionViewModelTest : public QObject
 {
@@ -27,7 +39,7 @@ private slots:
 
 void PlaylistCollectionViewModelTest::defaultStoragePathUsesStorageLibraryJson()
 {
-    PlaylistCollectionViewModel viewModel;
+    TestPlaylistCollectionViewModel viewModel;
 
     QCOMPARE(viewModel.storagePath(), QStringLiteral("storage/library.json"));
     QCOMPARE(viewModel.playlistCount(), 1);
@@ -36,7 +48,7 @@ void PlaylistCollectionViewModelTest::defaultStoragePathUsesStorageLibraryJson()
 
 void PlaylistCollectionViewModelTest::createPlaylistCommandUpdatesListModel()
 {
-    PlaylistCollectionViewModel viewModel;
+    TestPlaylistCollectionViewModel viewModel;
     viewModel.setNewPlaylistName(QStringLiteral("Road Trip"));
     QSignalSpy countSpy(&viewModel, &PlaylistCollectionViewModel::playlistCountChanged);
 
@@ -52,7 +64,7 @@ void PlaylistCollectionViewModelTest::createPlaylistCommandUpdatesListModel()
 
 void PlaylistCollectionViewModelTest::duplicatePlaylistNameShowsError()
 {
-    PlaylistCollectionViewModel viewModel;
+    TestPlaylistCollectionViewModel viewModel;
     viewModel.setNewPlaylistName(QStringLiteral("Road Trip"));
     QVERIFY(viewModel.createPlaylistCommand()->execute());
     viewModel.setNewPlaylistName(QStringLiteral(" Road Trip "));
@@ -65,7 +77,7 @@ void PlaylistCollectionViewModelTest::duplicatePlaylistNameShowsError()
 
 void PlaylistCollectionViewModelTest::switchPlaylistCommandUpdatesVisiblePlaylistWithoutPlaybackRequest()
 {
-    PlaylistCollectionViewModel viewModel;
+    TestPlaylistCollectionViewModel viewModel;
     viewModel.setNewPlaylistName(QStringLiteral("Road Trip"));
     QVERIFY(viewModel.createPlaylistCommand()->execute());
     viewModel.setSelectedPlaylistId(QStringLiteral("playlist-2"));
@@ -82,7 +94,7 @@ void PlaylistCollectionViewModelTest::switchPlaylistCommandUpdatesVisiblePlaylis
 
 void PlaylistCollectionViewModelTest::playSelectedSongCommandEmitsSnapshotAndIndex()
 {
-    PlaylistCollectionViewModel viewModel;
+    TestPlaylistCollectionViewModel viewModel;
     QVector<AudioFile> songs{
         AudioFile(QStringLiteral("/music/one.mp3"), QStringLiteral("One")),
         AudioFile(QStringLiteral("/music/two.mp3"), QStringLiteral("Two")),
@@ -104,7 +116,7 @@ void PlaylistCollectionViewModelTest::playSelectedSongCommandEmitsSnapshotAndInd
 
 void PlaylistCollectionViewModelTest::playVisiblePlaylistCommandRejectsEmptyPlaylist()
 {
-    PlaylistCollectionViewModel viewModel;
+    TestPlaylistCollectionViewModel viewModel;
     QSignalSpy playSpy(&viewModel, &PlaylistCollectionViewModel::playRequested);
 
     QVERIFY(!viewModel.playVisiblePlaylistCommand()->execute());
@@ -117,13 +129,13 @@ void PlaylistCollectionViewModelTest::saveLoadCommandsRoundtripV2Document()
 {
     QTemporaryDir temporaryDirectory;
     QVERIFY(temporaryDirectory.isValid());
-    PlaylistCollectionViewModel viewModel;
+    TestPlaylistCollectionViewModel viewModel;
     viewModel.setStoragePath(temporaryDirectory.filePath(QStringLiteral("storage/library.json")));
     viewModel.setNewPlaylistName(QStringLiteral("Road Trip"));
     QVERIFY(viewModel.createPlaylistCommand()->execute());
     QVERIFY(viewModel.saveCommand()->execute());
 
-    PlaylistCollectionViewModel loadedViewModel;
+    TestPlaylistCollectionViewModel loadedViewModel;
     loadedViewModel.setStoragePath(viewModel.storagePath());
     QVERIFY(loadedViewModel.loadCommand()->execute());
 

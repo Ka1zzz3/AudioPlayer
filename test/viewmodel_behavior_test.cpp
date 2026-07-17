@@ -1,6 +1,7 @@
 #include "Model/AudioFile.h"
 #include "Model/JsonSongRepository.h"
 #include "Model/PlayList.h"
+#include "Model/Service/LibraryUseCase.h"
 #include "Common/ViewCommand.h"
 #include "ViewModel/LibraryViewModel.h"
 #include "ViewModel/SongListModel.h"
@@ -13,12 +14,23 @@
 #include <QSignalSpy>
 #include <QTemporaryDir>
 
+#include <memory>
+
 using AudioPlayer::Model::AudioFile;
 using AudioPlayer::Model::JsonSongRepository;
 using AudioPlayer::Model::PlayList;
 using AudioPlayer::Common::ViewCommand;
 using AudioPlayer::ViewModel::LibraryViewModel;
 using AudioPlayer::ViewModel::SongListModel;
+
+class TestLibraryViewModel : public LibraryViewModel
+{
+public:
+    TestLibraryViewModel()
+        : LibraryViewModel(std::make_shared<AudioPlayer::Model::Service::LibraryUseCase>())
+    {
+    }
+};
 
 class ViewModelBehaviorTest : public QObject
 {
@@ -80,7 +92,7 @@ void ViewModelBehaviorTest::successfulLoadClearsErrorsAndUpdatesCountAndRoles()
                            99));
     const QString storagePath = savePlayList(temporaryDirectory, playList);
 
-    LibraryViewModel viewModel;
+    TestLibraryViewModel viewModel;
     viewModel.setStoragePath(temporaryDirectory.filePath(QStringLiteral("missing.json")));
     QVERIFY(!viewModel.loadCommand()->execute());
     QVERIFY(!viewModel.lastError().isEmpty());
@@ -109,7 +121,7 @@ void ViewModelBehaviorTest::failedLoadSetsLastError()
 {
     QTemporaryDir temporaryDirectory;
     QVERIFY(temporaryDirectory.isValid());
-    LibraryViewModel viewModel;
+    TestLibraryViewModel viewModel;
     viewModel.setStoragePath(temporaryDirectory.filePath(QStringLiteral("missing.json")));
 
     QSignalSpy failedSpy(&viewModel, &LibraryViewModel::loadFailed);
@@ -132,7 +144,7 @@ void ViewModelBehaviorTest::refreshSkipsMissingFileAndReportsWarning()
     playList.add(AudioFile(missingPath, QStringLiteral("Missing")));
     const QString storagePath = savePlayList(temporaryDirectory, playList);
 
-    LibraryViewModel viewModel;
+    TestLibraryViewModel viewModel;
     viewModel.setStoragePath(storagePath);
     QVERIFY(viewModel.loadCommand()->execute());
 
@@ -161,7 +173,7 @@ void ViewModelBehaviorTest::successfulRefreshClearsStaleErrors()
     playList.add(AudioFile(audioPath, QStringLiteral("Old Fresh")));
     const QString storagePath = savePlayList(temporaryDirectory, playList);
 
-    LibraryViewModel viewModel;
+    TestLibraryViewModel viewModel;
     viewModel.setStoragePath(storagePath);
     QVERIFY(viewModel.loadCommand()->execute());
     viewModel.setStoragePath(temporaryDirectory.filePath(QStringLiteral("missing.json")));
@@ -177,7 +189,7 @@ void ViewModelBehaviorTest::successfulRefreshClearsStaleErrors()
 
 void ViewModelBehaviorTest::scanDirectoryPathEmitsChangeSignal()
 {
-    LibraryViewModel viewModel;
+    TestLibraryViewModel viewModel;
     QSignalSpy spy(&viewModel, &LibraryViewModel::scanDirectoryPathChanged);
 
     viewModel.setScanDirectoryPath(QStringLiteral("/music"));
@@ -204,7 +216,7 @@ void ViewModelBehaviorTest::scanDirectoryUpdatesCountRolesWarningsAndStatus()
     QVERIFY(textFile.write("not audio") > 0);
     textFile.close();
 
-    LibraryViewModel viewModel;
+    TestLibraryViewModel viewModel;
     QSignalSpy countSpy(&viewModel, &LibraryViewModel::countChanged);
     QSignalSpy warningsSpy(&viewModel, &LibraryViewModel::warningsChanged);
     viewModel.setScanDirectoryPath(scanPath);
@@ -238,7 +250,7 @@ void ViewModelBehaviorTest::scanMissingDirectorySetsFatalErrorAndPreservesList()
     playList.add(AudioFile(audioPath, QStringLiteral("Existing")));
     const QString storagePath = savePlayList(temporaryDirectory, playList);
 
-    LibraryViewModel viewModel;
+    TestLibraryViewModel viewModel;
     viewModel.setStoragePath(storagePath);
     QVERIFY(viewModel.loadCommand()->execute());
     QCOMPARE(viewModel.count(), 1);
@@ -264,14 +276,14 @@ void ViewModelBehaviorTest::saveAfterScanCanBeLoadedByNewViewModel()
     audioFile.close();
     const QString storagePath = temporaryDirectory.filePath(QStringLiteral("library.json"));
 
-    LibraryViewModel scanner;
+    TestLibraryViewModel scanner;
     scanner.setScanDirectoryPath(scanPath);
     scanner.setStoragePath(storagePath);
     QVERIFY(scanner.scanCommand()->execute());
     QVERIFY(scanner.saveCommand()->execute());
     QCOMPARE(scanner.lastError(), QString());
 
-    LibraryViewModel loaded;
+    TestLibraryViewModel loaded;
     loaded.setStoragePath(storagePath);
     QVERIFY(loaded.loadCommand()->execute());
 
@@ -300,7 +312,7 @@ void ViewModelBehaviorTest::commandsExecuteCurrentViewModelIntentsAndUpdateState
     QVERIFY(textFile.write("not audio") > 0);
     textFile.close();
 
-    LibraryViewModel viewModel;
+    TestLibraryViewModel viewModel;
     QVERIFY(viewModel.scanCommand() != nullptr);
     QVERIFY(viewModel.loadCommand() != nullptr);
     QVERIFY(viewModel.saveCommand() != nullptr);
@@ -329,7 +341,7 @@ void ViewModelBehaviorTest::commandsExecuteCurrentViewModelIntentsAndUpdateState
     QVERIFY(QFileInfo::exists(storagePath));
     QVERIFY(viewModel.statusMessage().contains(QStringLiteral("Saved")));
 
-    LibraryViewModel loaded;
+    TestLibraryViewModel loaded;
     loaded.setStoragePath(storagePath);
     QVERIFY(loaded.loadCommand()->execute());
     QCOMPARE(loaded.lastError(), QString());
